@@ -9,7 +9,6 @@ It will:
   3. Let you choose which ones to include
   4. Write a ready-to-edit plot.yaml in the current folder
 """
-import re
 import sys
 from pathlib import Path
 
@@ -125,22 +124,14 @@ def main():
     print(f"\nSelected: {', '.join(f.name for f in selected)}")
 
     # ── Plot name / directory ─────────────────────────────────────────────
-    # Extract expno from parentheses in folder names e.g. "260715-161733 TRIPF (FF049_008)" → "FF049_008"
-    expnos = []
-    for f in selected:
-        m = re.search(r'\(([^)]+)\)', f.name)
-        if m:
-            expnos.append(m.group(1))
-    expno_prefix = "_".join(expnos) + "_" if expnos else ""
-
-    print("\nPlot name (e.g. tripf_dmso — folder will be created as plt_<expno>_<name>):")
+    print("\nPlot name (e.g. tripf_dmso — folder will be created as plt_<name>):")
     while True:
         raw_name = input("  > ").strip()
         if raw_name:
             break
         print("  Cannot be empty.")
 
-    plot_name = f"plt_{expno_prefix}{raw_name}"
+    plot_name = f"plt_{raw_name}"
     plot_dir = cwd / plot_name
     if plot_dir.exists():
         print(f"\n{plot_name}/ already exists. Overwrite plot.yaml inside? [y/N]")

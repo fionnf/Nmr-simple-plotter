@@ -51,21 +51,21 @@ nmr-new
 You will be prompted for:
 1. **Description** — required; saved as a comment at the top of the YAML
 2. **Which experiments to include** — numbered list; accepts `1`, `1,3`, `1-3`, or `all`
-3. **Plot name** — e.g. `tripf_dmso`; folder is created as `plt_<expno>_<name>` so all plot folders sort together
+3. **Plot name** — e.g. `tripf_dmso`; folder is created as `plt_<name>` so all plot folders sort together
 
 The result is a clean folder structure:
 
 ```
 FF049/
   260715-161733 TRIPF (FF049_008)/    ← raw Spinsolve data
-  plt_FF049_008_tripf_dmso/
+  plt_tripf_dmso/
     plot.yaml                          ← edit this
-    plt_FF049_008_tripf_dmso.pdf       ← created on first plot
-    plt_FF049_008_tripf_dmso.log       ← acquisition + processing record
-  plt_FF049_008_tripf_cdcl3/
+    plt_tripf_dmso.pdf                 ← created on first plot
+    plt_tripf_dmso.log                 ← acquisition + processing record
+  plt_tripf_cdcl3/
     plot.yaml
-    plt_FF049_008_tripf_cdcl3.pdf
-    plt_FF049_008_tripf_cdcl3.log
+    plt_tripf_cdcl3.pdf
+    plt_tripf_cdcl3.log
 ```
 
 ### 3. Edit the config
@@ -81,10 +81,10 @@ nmr-plot -c tripf_dmso/plot.yaml
 The figure and a log file are saved inside the same folder as `plot.yaml`:
 
 ```
-plt_FF049_008_tripf_dmso/
+plt_tripf_dmso/
   plot.yaml
-  plt_FF049_008_tripf_dmso.pdf
-  plt_FF049_008_tripf_dmso.log    ← acquisition + processing record
+  plt_tripf_dmso.pdf
+  plt_tripf_dmso.log    ← acquisition + processing record
 ```
 
 The log records the full acquisition parameters (nucleus, frequency, number of scans, dwell time, pulse length, RX gain, software version), all processing parameters (phase mode, p0/p1, lb, zf), and figure settings.

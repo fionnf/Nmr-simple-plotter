@@ -2,47 +2,112 @@
 
 Config-driven NMR plotting tool for Spinsolve (Magritek) data using nmrglue. Edit a YAML file, run one command, get a publication-ready figure.
 
-## Quick Start
+## Setup
 
 ```bash
+cd /path/to/nmr-simple-plotter
+python -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
-python plot.py -c examples/config_spinsolve.yaml
+```
+
+### Shell aliases (optional but recommended)
+
+Add these to your `~/.zshrc` so the tools work from any terminal:
+
+```bash
+alias nmr-activate="source /path/to/nmr-simple-plotter/.venv/bin/activate"
+alias nmr-deactivate="deactivate"
+alias nmr-new="python /path/to/nmr-simple-plotter/new_plot.py"
+alias nmr-plot="python /path/to/nmr-simple-plotter/plot.py"
+alias nmr-phase="python /path/to/nmr-simple-plotter/phase_check.py"
+```
+
+Then reload your shell:
+
+```bash
+source ~/.zshrc
+```
+
+After that, the full workflow from any terminal is:
+
+```bash
+nmr-activate                  # activate the environment
+cd /path/to/session/folder
+nmr-new                       # create plot.yaml interactively
+nmr-plot -c plot.yaml         # plot it
+nmr-deactivate                # done
 ```
 
 ## Scripts
 
 | Script | Purpose |
 |--------|---------|
+| `new_plot.py` | Run in a session folder — prompts for a description, lists experiments, writes `plot.yaml` |
 | `plot.py` | Main plotter — reads a YAML config and saves figures |
 | `phase_check.py` | Interactive phase correction with live sliders |
 
-## Plotting
+## Workflow
+
+### 1. Activate the environment
 
 ```bash
-python plot.py -c examples/config_spinsolve.yaml
+nmr-activate
 ```
 
-Figures are saved to the path set in `output:` (default `figures/`).
+### 2. Initialise a plot config in your session folder
 
-## Phase Correction
-
-If the phase from `proc.par` doesn't look right, use the interactive tool to find good values:
+Navigate to a folder containing Spinsolve acquisition subfolders and run:
 
 ```bash
-python phase_check.py -p "examples/spinsolve_example/260714-160018 Fluorine1D (FF048_013)"
-
-# optional flags
-#   --lb 5.0          line broadening in Hz
-#   --zf 8            zero-fill factor
-#   --xlim -60 -220   ppm display range
+cd /path/to/session/folder
+nmr-new
 ```
 
-Three sliders are shown:
+It will:
+1. Ask for a description (required — saved as a comment at the top of the YAML)
+2. List every Spinsolve subfolder it finds (`acqu.par` + `data.1d`)
+3. Let you pick which to include (`1`, `1,3`, `1-3`, or `all`)
+4. Write `plot.yaml` in the current folder, ready to edit and run
+
+### 3. Edit and plot
+
+Open `plot.yaml`, adjust labels, colours, `xlim`, phase settings, etc., then:
+
+```bash
+nmr-plot -c plot.yaml
+```
+
+Figures are saved next to `plot.yaml` (or wherever `output:` points).
+
+### 4. Fix the phase (if needed)
+
+If the phase from `proc.par` doesn't look right, use the interactive tool:
+
+```bash
+nmr-phase -p "260714-160018 Fluorine1D (FF048_013)" --xlim -60 -220
+```
+
+Optional flags: `--lb 5.0` (line broadening in Hz), `--zf 8` (zero-fill factor).
+
+Three sliders let you dial in the correction:
 - **p0** — zero-order (constant) phase shift
 - **p1** — first-order (frequency-dependent) phase shift
-- **pivot** — the ppm position that stays fixed when sweeping p1 (shown as a red dashed line); set this to your main peak before adjusting p1
+- **pivot** — ppm position held fixed when sweeping p1 (red dashed line); place it on your main peak before adjusting p1
 
-Click **Print values** to copy the corrected p0/p1 into your YAML.
+Click **Print values** to print the corrected values, then paste them into `plot.yaml`:
+
+```yaml
+    phase: "manual"
+    p0: 63.82
+    p1: -360.00
+```
+
+### 5. Deactivate when done
+
+```bash
+nmr-deactivate
+```
 
 ## YAML Config Reference
 

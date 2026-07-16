@@ -47,6 +47,15 @@ def process_spinsolve(path, lb=1.0, zf=1, phase="proc", p0=0.0, p1=0.0):
     return ppm, hz, data.real, acqu, proc
 
 
+def format_nucleus(raw: str) -> str:
+    """'19F' → '$^{19}$F',  '1H' → '$^{1}$H', etc."""
+    import re
+    m = re.match(r'^(\d+)([A-Za-z]+)$', raw.strip())
+    if m:
+        return f"$^{{{m.group(1)}}}${m.group(2)}"
+    return raw
+
+
 def write_log(output: str, cfg: dict, spectra_meta: list):
     """Write a plain-text log alongside the figure."""
     lines = [
@@ -151,11 +160,13 @@ def main():
                 linewidth = spec.get("linewidth", 1.0),
                 alpha     = spec.get("alpha", 1.0))
 
-    # X axis — auto-label based on x_unit unless overridden
+    # X axis — auto-label from nucleus and x_unit unless overridden
+    raw_nucleus = spectra_meta[0][1].get("nucleus", "") if spectra_meta else ""
+    nucleus_str = format_nucleus(raw_nucleus) + " " if raw_nucleus else ""
     default_xlabel = {
-        "ppm": "Chemical Shift (ppm)",
-        "hz":  "Frequency Offset from Carrier (Hz)",
-    }.get(x_unit, f"Chemical Shift ({x_unit})")
+        "ppm": f"{nucleus_str}Chemical Shift (ppm)",
+        "hz":  f"{nucleus_str}Frequency Offset from Carrier (Hz)",
+    }.get(x_unit, f"{nucleus_str}Chemical Shift ({x_unit})")
     xlabel = fig_cfg.get("xlabel", default_xlabel)
     ax.set_xlabel(xlabel)
     ax.invert_xaxis()

@@ -11,6 +11,24 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 
+def _load_saved_phases(path: str) -> tuple[float, float]:
+    """Read phases.txt from the experiment directory. Falls back to (0, 0) with a warning."""
+    phase_file = Path(path) / "phases.txt"
+    if not phase_file.exists():
+        print(f"Warning: no phases.txt found in {path}, using p0=0 p1=0")
+        return 0.0, 0.0
+    p0, p1 = 0.0, 0.0
+    for line in phase_file.read_text().splitlines():
+        if "=" in line:
+            key, _, val = line.partition("=")
+            key, val = key.strip(), val.strip()
+            if key == "p0":
+                p0 = float(val)
+            elif key == "p1":
+                p1 = float(val)
+    return p0, p1
+
+
 def process_spinsolve(path, lb=1.0, zf=1, phase="proc", p0=0.0, p1=0.0):
     """Load and process a Spinsolve FID. Returns (ppm, hz, real_spectrum, acqu, proc)."""
     dic, data = ng.spinsolve.read(path)
@@ -35,7 +53,10 @@ def process_spinsolve(path, lb=1.0, zf=1, phase="proc", p0=0.0, p1=0.0):
         data = ng.proc_autophase.autops(data, "acme")
     elif phase == "manual":
         data = ng.proc_base.ps(data, p0=p0, p1=p1)
-    else:
+    elif phase == "saved":
+        p0, p1 = _load_saved_phases(path)
+        data = ng.proc_base.ps(data, p0=p0, p1=p1)
+    else:  # "proc"
         data = ng.proc_base.ps(data, p0=p0_proc, p1=p1_proc)
 
     npts   = len(data)

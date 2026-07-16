@@ -61,7 +61,7 @@ def build_yaml(comment: str, selected: list[Path], plot_name: str) -> str:
             f'    linewidth: 1.0',
             f'    lb: 5.0',
             f'    zf: 8',
-            f'    phase: "proc"   # proc | auto | manual',
+            f'    phase: "proc"   # proc | saved | auto | manual',
             f'    # p0: 0.0',
             f'    # p1: 0.0',
             f'    offset: 0',

@@ -140,13 +140,15 @@ def main():
                       valinit=pivot_ppm_init, valstep=0.5)
 
     # ── Buttons ──────────────────────────────────────────────────────────────
-    ax_btn_auto  = fig.add_axes([0.12, 0.01, 0.20, 0.04])
-    ax_btn_zoom  = fig.add_axes([0.38, 0.01, 0.20, 0.04])
-    ax_btn_print = fig.add_axes([0.64, 0.01, 0.20, 0.04])
+    ax_btn_auto  = fig.add_axes([0.08, 0.01, 0.18, 0.04])
+    ax_btn_zoom  = fig.add_axes([0.29, 0.01, 0.18, 0.04])
+    ax_btn_print = fig.add_axes([0.50, 0.01, 0.18, 0.04])
+    ax_btn_save  = fig.add_axes([0.71, 0.01, 0.21, 0.04])
 
     btn_auto  = Button(ax_btn_auto,  "Autophase")
     btn_zoom  = Button(ax_btn_zoom,  "Full spectrum" if zoomed[0] else "Zoom")
     btn_print = Button(ax_btn_print, "Print values")
+    btn_save  = Button(ax_btn_save,  "Save phases")
 
     # ── Callbacks ────────────────────────────────────────────────────────────
     def redraw(p0, p1, pivot_ppm):
@@ -202,16 +204,29 @@ def main():
             zoomed[0] = True
         fig.canvas.draw_idle()
 
-    def on_print(_):
+    def _yaml_phases():
+        """Return (p0_yaml, p1) in ng convention (pivot at index 0)."""
         p0, p1    = sl_p0.val, sl_p1.val
-        pivot_ppm = sl_pivot.val
-        pivot_idx = int(np.argmin(np.abs(ppm - pivot_ppm)))
-        p0_yaml   = p0 - p1 * pivot_idx / N
+        pivot_idx = int(np.argmin(np.abs(ppm - sl_pivot.val)))
+        return p0 - p1 * pivot_idx / N, p1
+
+    def on_print(_):
+        p0_yaml, p1 = _yaml_phases()
         print("\n--- Copy into your YAML ---")
         print('    phase: "manual"')
         print(f"    p0: {p0_yaml:.2f}")
         print(f"    p1: {p1:.2f}")
         print("---------------------------\n")
+
+    def on_save(_):
+        p0_yaml, p1 = _yaml_phases()
+        phase_file = Path(args.path) / "phases.txt"
+        phase_file.write_text(f"p0 = {p0_yaml:.4f}\np1 = {p1:.4f}\n")
+        print(f"Saved phases to: {phase_file}")
+        title.set_text(
+            title.get_text().split("   |")[0] + f"   |   phases saved to {phase_file.name}"
+        )
+        fig.canvas.draw_idle()
 
     sl_p0.on_changed(on_slider)
     sl_p1.on_changed(on_slider)
@@ -220,6 +235,7 @@ def main():
     btn_auto.on_clicked(on_autophase)
     btn_zoom.on_clicked(on_zoom)
     btn_print.on_clicked(on_print)
+    btn_save.on_clicked(on_save)
 
     plt.show()
 

@@ -1,30 +1,46 @@
-# Drop this file into a Spinsolve experiment folder and run:
-#   python /path/to/plot.py -c plot.yaml
+# Place this file in your experiment session folder alongside the acquisition subfolders.
+# Run from anywhere:
+#   python /path/to/plot.py -c /path/to/this/plot.yaml
 #
-# All paths are relative to this file, so "." means the folder it lives in.
+# All paths are relative to this file's location.
+# Use "." to mean the same folder this yaml is in (if the yaml lives inside one acquisition).
+# Use a subfolder name to point at a specific acquisition within a session folder.
 
 spectra:
-  - path: "."           # "." = this experiment folder
-    label: ""
+  - path: "260714-160018 Fluorine1D (FF048_013)"   # subfolder name relative to this file
+    label: "FF048"
     color: "tab:blue"
     linewidth: 1.0
     lb: 5.0
     zf: 8
-    phase: "proc"       # "proc" | "auto" | "manual"
-    # p0: 0.0
+    phase: "proc"   # "proc" | "auto" | "manual"
+    # p0: 0.0       # used when phase: "manual"
     # p1: 0.0
     offset: 0
 
+  # Add more spectra to overlay or stack:
+  # - path: "260715-161204 Fluorine1D (FF049_007)"
+  #   label: "FF049"
+  #   color: "tab:orange"
+  #   linewidth: 1.0
+  #   lb: 5.0
+  #   zf: 8
+  #   phase: "proc"
+  #   offset: 0   # increase to stack above first spectrum
+
 figure:
   size: [6.0, 4.5]
-  x_unit: "ppm"         # "ppm" or "hz"
-  xlim: [-60, -220]
+  x_unit: "ppm"       # "ppm" or "hz"
+  xlim: [-60, -220]   # adjust to your peak region
 
   box: false
   y_axis: false
 
   legend:
-    show: false
+    show: true
+    position: "upper right"
+    fontsize: 9
+    frameon: false
 
-output: "spectrum"      # saves spectrum.png and spectrum.pdf next to this file
+output: "spectrum"    # saves spectrum.png / spectrum.pdf next to this file
 formats: ["png", "pdf"]

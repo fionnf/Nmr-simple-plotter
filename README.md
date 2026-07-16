@@ -51,19 +51,21 @@ nmr-new
 You will be prompted for:
 1. **Description** — required; saved as a comment at the top of the YAML
 2. **Which experiments to include** — numbered list; accepts `1`, `1,3`, `1-3`, or `all`
-3. **Plot name** — becomes a new subdirectory; e.g. `tripf_dmso` creates `tripf_dmso/plot.yaml`
+3. **Plot name** — e.g. `tripf_dmso`; the experiment number and `_plot` are appended automatically → `FF049_008_tripf_dmso_plot/`
 
 The result is a clean folder structure:
 
 ```
 FF049/
-  260715-161733 TRIPF (FF049_008)/   ← raw Spinsolve data
-  tripf_dmso/
-    plot.yaml                         ← edit this
-    tripf_dmso.pdf                    ← created on first plot run
-  tripf_cdcl3/
+  260715-161733 TRIPF (FF049_008)/        ← raw Spinsolve data
+  FF049_008_tripf_dmso_plot/
+    plot.yaml                              ← edit this
+    FF049_008_tripf_dmso_plot.pdf          ← created on first plot
+    FF049_008_tripf_dmso_plot.log          ← acquisition + processing record
+  FF049_008_tripf_cdcl3_plot/
     plot.yaml
-    tripf_cdcl3.pdf
+    FF049_008_tripf_cdcl3_plot.pdf
+    FF049_008_tripf_cdcl3_plot.log
 ```
 
 ### 3. Edit the config
@@ -76,7 +78,16 @@ Open `plot.yaml` and adjust labels, colours, `xlim`, phase settings, etc. The fu
 nmr-plot -c tripf_dmso/plot.yaml
 ```
 
-The figure is saved inside the same folder as `plot.yaml`.
+The figure and a log file are saved inside the same folder as `plot.yaml`:
+
+```
+FF049_008_tripf_dmso_plot/
+  plot.yaml
+  FF049_008_tripf_dmso_plot.pdf
+  FF049_008_tripf_dmso_plot.log    ← acquisition + processing record
+```
+
+The log records the full acquisition parameters (nucleus, frequency, number of scans, dwell time, pulse length, RX gain, software version), all processing parameters (phase mode, p0/p1, lb, zf), and figure settings.
 
 ### 5. Fix the phase (if needed)
 
@@ -118,9 +129,9 @@ nmr-deactivate
 
 | Script | Purpose |
 |--------|---------|
-| `new_plot.py` | Run in a session folder — prompts for description, experiments, and plot name; creates a subdirectory with `plot.yaml` |
-| `plot.py` | Main plotter — reads a YAML config and saves figures |
-| `phase_check.py` | Interactive phase correction with live sliders and autophase |
+| `new_plot.py` | Run in a session folder — prompts for description, experiments, and plot name; creates a named subdirectory with `plot.yaml` |
+| `plot.py` | Main plotter — reads a YAML config, saves figures and a `.log` file |
+| `phase_check.py` | Interactive phase correction with live sliders, peak-anchored autophase, and print-to-YAML |
 
 ---
 
@@ -151,8 +162,8 @@ spectra:
 
 figure:
   size: [6.0, 4.5]             # [width, height] inches
-  x_unit: "ppm"               # "ppm" → "Chemical Shift (ppm)"
-                              # "hz"  → "Frequency Offset from Carrier (Hz)"
+  x_unit: "ppm"               # "ppm" → "¹⁹F Chemical Shift (ppm)"  (nucleus auto-read)
+                              # "hz"  → "¹⁹F Frequency Offset from Carrier (Hz)"
   # xlabel: "override"        # uncomment to override the auto label
   # xlim: [-60, -220]         # uncomment to set display window (high ppm, low ppm)
 

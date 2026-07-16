@@ -9,6 +9,7 @@ It will:
   3. Let you choose which ones to include
   4. Write a ready-to-edit plot.yaml in the current folder
 """
+import re
 import sys
 from pathlib import Path
 
@@ -48,6 +49,7 @@ def build_yaml(comment: str, selected: list[Path], plot_name: str) -> str:
     lines = [
         f"# {comment}",
         f"# Run: nmr-plot -c {plot_name}/plot.yaml",
+        f"# Docs: https://github.com/fionnf/Nmr-simple-plotter#readme",
         "",
         "spectra:",
     ]
@@ -123,13 +125,22 @@ def main():
     print(f"\nSelected: {', '.join(f.name for f in selected)}")
 
     # ── Plot name / directory ─────────────────────────────────────────────
-    print("\nPlot name (becomes the folder name, e.g. tripf_dmso):")
+    # Extract expno from parentheses in folder names e.g. "260715-161733 TRIPF (FF049_008)" → "FF049_008"
+    expnos = []
+    for f in selected:
+        m = re.search(r'\(([^)]+)\)', f.name)
+        if m:
+            expnos.append(m.group(1))
+    expno_prefix = "_".join(expnos) + "_" if expnos else ""
+
+    print("\nPlot name (e.g. tripf_dmso — expno and '_plot' will be added automatically):")
     while True:
-        plot_name = input("  > ").strip()
-        if plot_name:
+        raw_name = input("  > ").strip()
+        if raw_name:
             break
         print("  Cannot be empty.")
 
+    plot_name = f"{expno_prefix}{raw_name}_plot"
     plot_dir = cwd / plot_name
     if plot_dir.exists():
         print(f"\n{plot_name}/ already exists. Overwrite plot.yaml inside? [y/N]")

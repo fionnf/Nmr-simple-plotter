@@ -3,6 +3,7 @@
     python plot.py -c examples/config_spinsolve.yaml
 """
 import argparse
+import datetime
 import yaml
 import numpy as np
 import nmrglue as ng
@@ -11,7 +12,7 @@ from pathlib import Path
 
 
 def process_spinsolve(path, lb=1.0, zf=1, phase="proc", p0=0.0, p1=0.0):
-    """Load and process a Spinsolve FID. Returns (ppm_axis, hz_axis, real_spectrum)."""
+    """Load and process a Spinsolve FID. Returns (ppm, hz, real_spectrum, acqu, proc)."""
     dic, data = ng.spinsolve.read(path)
     acqu = dic["acqu"]
     proc = dic["proc"]
@@ -22,7 +23,6 @@ def process_spinsolve(path, lb=1.0, zf=1, phase="proc", p0=0.0, p1=0.0):
     p0_proc    = float(proc.get("p0Phase", 0))
     p1_proc    = float(proc.get("p1Phase", 0))
 
-    # em expects lb in units of points: lb_pts = lb_hz / sw_hz
     if lb > 0:
         data = ng.proc_base.em(data, lb=lb / sw_hz)
 
@@ -35,17 +35,79 @@ def process_spinsolve(path, lb=1.0, zf=1, phase="proc", p0=0.0, p1=0.0):
         data = ng.proc_autophase.autops(data, "acme")
     elif phase == "manual":
         data = ng.proc_base.ps(data, p0=p0, p1=p1)
-    else:  # "proc" — use values from proc.par
+    else:
         data = ng.proc_base.ps(data, p0=p0_proc, p1=p1_proc)
 
     npts   = len(data)
     sw_ppm = sw_hz / obs
-    # ppm axis: high ppm on index 0 so inverted x-axis gives correct NMR display
     ppm = np.linspace(ppm_offset + sw_ppm / 2,
                       ppm_offset - sw_ppm / 2, npts)
     hz  = ppm * obs
 
-    return ppm, hz, data.real
+    return ppm, hz, data.real, acqu, proc
+
+
+def write_log(output: str, cfg: dict, spectra_meta: list):
+    """Write a plain-text log alongside the figure."""
+    lines = [
+        "=" * 60,
+        "NMR PLOT LOG",
+        f"Generated : {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Config    : {cfg.get('_config_path', '')}",
+        "=" * 60,
+    ]
+
+    for i, (spec_cfg, acqu, proc) in enumerate(spectra_meta):
+        lines += [
+            "",
+            f"── Spectrum {i + 1}: {spec_cfg.get('label', spec_cfg['path'])}",
+            f"   Path            : {spec_cfg['path']}",
+            "",
+            "   Acquisition parameters",
+            f"     Experiment      : {acqu.get('experiment', 'N/A')}",
+            f"     Nucleus         : {acqu.get('nucleus', 'N/A')}",
+            f"     Frequency       : {float(acqu.get('b1Freq', 0)):.6f} MHz",
+            f"     Bandwidth       : {acqu.get('bandwidth', 'N/A')} kHz",
+            f"     Acq. time       : {acqu.get('acqTime', 'N/A')} ms",
+            f"     Dwell time      : {acqu.get('dwellTime', 'N/A')} µs",
+            f"     Nr. points      : {acqu.get('nrPnts', 'N/A')}",
+            f"     Nr. scans       : {acqu.get('nrScans', 'N/A')}",
+            f"     Rep. time       : {acqu.get('repTime', 'N/A')} ms",
+            f"     Pulse length    : {acqu.get('pulseLength19F', acqu.get('pulseLength1H', acqu.get('pulseLength', 'N/A')))} µs",
+            f"     RX gain         : {acqu.get('rxGain', 'N/A')}",
+            f"     Software        : {acqu.get('softwareVersion', 'N/A')}",
+            "",
+            "   Processing parameters",
+            f"     Phase mode      : {spec_cfg.get('phase', 'proc')}",
+        ]
+        phase_mode = spec_cfg.get("phase", "proc")
+        if phase_mode == "manual":
+            lines.append(f"     p0              : {spec_cfg.get('p0', 0.0):.2f}°")
+            lines.append(f"     p1              : {spec_cfg.get('p1', 0.0):.2f}°")
+        else:
+            lines.append(f"     p0 (proc.par)   : {float(proc.get('p0Phase', 0)):.3f}°")
+            lines.append(f"     p1 (proc.par)   : {float(proc.get('p1Phase', 0)):.3f}°")
+        lines += [
+            f"     Line broadening : {spec_cfg.get('lb', 1.0)} Hz",
+            f"     Zero-fill       : {spec_cfg.get('zf', 1)}×",
+            f"     Vertical offset : {spec_cfg.get('offset', 0)}",
+        ]
+
+    fig_cfg = cfg.get("figure", {})
+    lines += [
+        "",
+        "── Figure settings",
+        f"   Size    : {fig_cfg.get('size', 'default')}",
+        f"   x unit  : {fig_cfg.get('x_unit', 'ppm')}",
+        f"   xlim    : {fig_cfg.get('xlim', 'full spectrum')}",
+        f"   Formats : {cfg.get('formats', ['pdf'])}",
+        "",
+        "=" * 60,
+    ]
+
+    log_path = output + ".log"
+    Path(log_path).write_text("\n".join(lines))
+    print(f"Log:   {log_path}")
 
 
 def main():
@@ -56,9 +118,8 @@ def main():
     with open(args.config) as f:
         cfg = yaml.safe_load(f)
 
-    # Resolve all paths relative to the YAML file's directory so the config
-    # and figures can live inside the experiment folder.
     cfg_dir = Path(args.config).resolve().parent
+    cfg["_config_path"] = str(Path(args.config).resolve())
     for spec in cfg["spectra"]:
         spec["path"] = str((cfg_dir / spec["path"]).resolve())
     cfg["output"] = str(cfg_dir / cfg.get("output", "spectrum"))
@@ -71,8 +132,9 @@ def main():
 
     fig, ax = plt.subplots(figsize=figsize)
 
+    spectra_meta = []
     for spec in cfg["spectra"]:
-        ppm, hz, intensity = process_spinsolve(
+        ppm, hz, intensity, acqu, proc = process_spinsolve(
             path  = spec["path"],
             lb    = spec.get("lb", 1.0),
             zf    = spec.get("zf", 1),
@@ -80,6 +142,7 @@ def main():
             p0    = spec.get("p0", 0.0),
             p1    = spec.get("p1", 0.0),
         )
+        spectra_meta.append((spec, acqu, proc))
         offset = spec.get("offset", 0.0)
         x_data = hz if x_unit == "hz" else ppm
         ax.plot(x_data, intensity + offset,
@@ -152,6 +215,7 @@ def main():
         print(f"Saved: {filepath}")
 
     plt.close(fig)
+    write_log(output, cfg, spectra_meta)
 
 
 if __name__ == "__main__":

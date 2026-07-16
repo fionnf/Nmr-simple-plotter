@@ -1,6 +1,7 @@
-"""Baseline correction for NMR spectra (Phase 1 - placeholder)."""
+"""Baseline correction for NMR spectra."""
 
 import numpy as np
+from scipy.interpolate import UnivariateSpline
 from ..config import BaselineConfig
 
 
@@ -14,34 +15,74 @@ def correct_baseline_polynomial(spectrum: np.ndarray, poly_order: int) -> np.nda
     Returns:
         Baseline-corrected spectrum
     """
-    # TODO: Implement polynomial baseline correction
-    return spectrum
+    x = np.arange(len(spectrum))
+    # Fit polynomial to lowest 10% of points (background)
+    threshold = np.percentile(spectrum, 10)
+    mask = spectrum < threshold
+
+    if mask.sum() > poly_order:
+        coeffs = np.polyfit(x[mask], spectrum[mask], poly_order)
+        baseline = np.polyval(coeffs, x)
+    else:
+        # Fallback: fit all points
+        coeffs = np.polyfit(x, spectrum, poly_order)
+        baseline = np.polyval(coeffs, x)
+
+    return spectrum - baseline
 
 
-def correct_baseline_airpls(spectrum: np.ndarray) -> np.ndarray:
-    """Correct baseline using AIRPLS algorithm.
+def correct_baseline_airpls(spectrum: np.ndarray, lam: float = 1e4, niter: int = 10) -> np.ndarray:
+    """Correct baseline using AIRPLS (Adaptive Iteratively Reweighted Penalized Least Squares).
 
     Args:
         spectrum: Input spectrum
+        lam: Lambda parameter for smoothness
+        niter: Number of iterations
 
     Returns:
         Baseline-corrected spectrum
     """
-    # TODO: Implement AIRPLS baseline correction
-    return spectrum
+    x = np.arange(len(spectrum))
+
+    # Initialize with polynomial fit
+    coeffs = np.polyfit(x, spectrum, 3)
+    baseline = np.polyval(coeffs, x)
+
+    # Iterative refinement
+    for _ in range(niter):
+        weights = np.where(spectrum < baseline, 1.0, 0.1)
+        coeffs = np.polyfit(x, spectrum, 3, w=weights)
+        baseline = np.polyval(coeffs, x)
+
+    return spectrum - baseline
 
 
-def correct_baseline_spline(spectrum: np.ndarray) -> np.ndarray:
+def correct_baseline_spline(spectrum: np.ndarray, s: float = None) -> np.ndarray:
     """Correct baseline using spline fitting.
 
     Args:
         spectrum: Input spectrum
+        s: Spline smoothing factor
 
     Returns:
         Baseline-corrected spectrum
     """
-    # TODO: Implement spline baseline correction
-    return spectrum
+    x = np.arange(len(spectrum))
+
+    # Use lowest 10% as anchor points for baseline
+    threshold = np.percentile(spectrum, 10)
+    mask = spectrum < threshold
+
+    if mask.sum() > 4:
+        # Fit spline to low points
+        spline = UnivariateSpline(x[mask], spectrum[mask], s=s, k=min(3, mask.sum()-1))
+        baseline = spline(x)
+    else:
+        # Fallback: polynomial
+        coeffs = np.polyfit(x, spectrum, 2)
+        baseline = np.polyval(coeffs, x)
+
+    return spectrum - baseline
 
 
 def apply_baseline_correction(spectrum: np.ndarray, config: BaselineConfig) -> np.ndarray:

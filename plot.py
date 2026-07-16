@@ -10,7 +10,8 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from src.config import Config
 from src.data_loader import DataLoader
-from src.plotter import cli
+from src.processing.pipeline import process_spectrum
+from src.processing.metrics import calculate_snr
 
 
 def main():
@@ -33,15 +34,36 @@ def main():
 
         # Load data
         freq_axis, spectrum = DataLoader.load(cfg.data_file, cfg.data_format)
-        print(f"✓ Loaded spectrum: {len(spectrum)} points")
+        print(f"\n✓ Loaded spectrum: {len(spectrum)} points")
         print(f"  Frequency range: {freq_axis.min():.1f} to {freq_axis.max():.1f} ppm")
         print(f"  Intensity range: {spectrum.min():.0f} to {spectrum.max():.0f}")
 
-        print("\nNote: Full plotting pipeline coming in Phase 1-2")
-        print("Config structure is ready - edit the YAML files in examples/ to adjust parameters")
+        # Process spectrum
+        print(f"\n✓ Processing spectrum...")
+        result = process_spectrum(freq_axis, spectrum, cfg)
+        processed_spectrum = result["spectrum"]
+        peaks = result["peak_indices"]
+        print(f"  Baseline corrected: {cfg.processing.baseline.method}")
+        print(f"  Phase correction: {'auto' if cfg.processing.phase.auto else 'manual'}")
+        print(f"  Smoothing: {cfg.processing.smoothing.method}")
+        print(f"  Peaks detected: {len(peaks)}")
+
+        # Calculate metrics
+        print(f"\n✓ Calculating metrics...")
+        if cfg.analysis.snr.enabled and cfg.analysis.snr.signal_region and cfg.analysis.snr.noise_region:
+            snr = calculate_snr(processed_spectrum, freq_axis, cfg.analysis.snr.signal_region, cfg.analysis.snr.noise_region)
+            print(f"  SNR: {snr:.1f}")
+
+        if len(peaks) > 0:
+            print(f"  Peak positions: {[f'{freq_axis[p]:.1f}' for p in peaks[:3]]} ppm")
+
+        print(f"\n✓ Processing complete")
+        print(f"Note: Plotting output coming in Phase 2")
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
         sys.exit(1)
 
 

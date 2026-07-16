@@ -133,14 +133,14 @@ def main():
             expnos.append(m.group(1))
     expno_prefix = "_".join(expnos) + "_" if expnos else ""
 
-    print("\nPlot name (e.g. tripf_dmso — expno and '_plot' will be added automatically):")
+    print("\nPlot name (e.g. tripf_dmso — folder will be created as plt_<expno>_<name>):")
     while True:
         raw_name = input("  > ").strip()
         if raw_name:
             break
         print("  Cannot be empty.")
 
-    plot_name = f"{expno_prefix}{raw_name}_plot"
+    plot_name = f"plt_{expno_prefix}{raw_name}"
     plot_dir = cwd / plot_name
     if plot_dir.exists():
         print(f"\n{plot_name}/ already exists. Overwrite plot.yaml inside? [y/N]")

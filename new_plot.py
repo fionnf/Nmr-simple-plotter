@@ -44,17 +44,17 @@ def parse_selection(text: str, n: int) -> list[int]:
     return valid if valid else []
 
 
-def build_yaml(comment: str, selected: list[Path]) -> str:
+def build_yaml(comment: str, selected: list[Path], plot_name: str) -> str:
     lines = [
         f"# {comment}",
-        f"# Run: python plot.py -c plot.yaml",
+        f"# Run: nmr-plot -c {plot_name}/plot.yaml",
         "",
         "spectra:",
     ]
     for i, folder in enumerate(selected):
         color = COLORS[i % len(COLORS)]
         lines += [
-            f'  - path: "{folder.name}"',
+            f'  - path: "../{folder.name}"',
             f'    label: "{folder.name}"',
             f'    color: "{color}"',
             f'    linewidth: 1.0',
@@ -70,7 +70,7 @@ def build_yaml(comment: str, selected: list[Path]) -> str:
         "figure:",
         "  size: [6.0, 4.5]",
         '  x_unit: "ppm"     # "ppm" or "hz"',
-        "  xlim: [-60, -220] # adjust to your peak region",
+        "  # xlim: [-60, -220] # uncomment to set display window",
         "",
         "  box: false",
         "  y_axis: false",
@@ -81,8 +81,8 @@ def build_yaml(comment: str, selected: list[Path]) -> str:
         "    fontsize: 9",
         "    frameon: false",
         "",
-        'output: "spectrum"',
-        'formats: ["png", "pdf"]',
+        f'output: "{plot_name}"',
+        'formats: ["pdf"]',
     ]
     return "\n".join(lines) + "\n"
 
@@ -122,19 +122,31 @@ def main():
     selected = [subfolders[i] for i in indices]
     print(f"\nSelected: {', '.join(f.name for f in selected)}")
 
-    # ── Write plot.yaml ───────────────────────────────────────────────────
-    out_path = cwd / "plot.yaml"
-    if out_path.exists():
-        print(f"\nplot.yaml already exists. Overwrite? [y/N]")
+    # ── Plot name / directory ─────────────────────────────────────────────
+    print("\nPlot name (becomes the folder name, e.g. tripf_dmso):")
+    while True:
+        plot_name = input("  > ").strip()
+        if plot_name:
+            break
+        print("  Cannot be empty.")
+
+    plot_dir = cwd / plot_name
+    if plot_dir.exists():
+        print(f"\n{plot_name}/ already exists. Overwrite plot.yaml inside? [y/N]")
         if input("  > ").strip().lower() != "y":
             print("Aborted.")
             sys.exit(0)
+    else:
+        plot_dir.mkdir()
 
-    out_path.write_text(build_yaml(comment, selected))
+    # ── Write yaml ────────────────────────────────────────────────────────
+    out_path = plot_dir / "plot.yaml"
+    out_path.write_text(build_yaml(comment, selected, plot_name))
 
-    print(f"\nCreated: {out_path}")
-    print(f"Edit it, then run:")
-    print(f"  python plot.py -c {out_path}")
+    print(f"\nCreated: {plot_dir}/")
+    print(f"         └── plot.yaml  (output → {plot_name}.pdf)")
+    print(f"\nEdit it, then run:")
+    print(f"  nmr-plot -c {out_path}")
 
 
 if __name__ == "__main__":

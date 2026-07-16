@@ -12,6 +12,7 @@ from src.config import Config
 from src.data_loader import DataLoader
 from src.processing.pipeline import process_spectrum
 from src.processing.metrics import calculate_snr
+from src.plotting.figure_builder import FigureBuilder
 
 
 def main():
@@ -57,8 +58,48 @@ def main():
         if len(peaks) > 0:
             print(f"  Peak positions: {[f'{freq_axis[p]:.1f}' for p in peaks[:3]]} ppm")
 
-        print(f"\n✓ Processing complete")
-        print(f"Note: Plotting output coming in Phase 2")
+        # Create figure and plot
+        print(f"\n✓ Creating figure...")
+        builder = FigureBuilder(cfg)
+
+        # Plot main spectrum
+        builder.plot_spectrum(freq_axis, processed_spectrum, label=cfg.data_file)
+
+        # Plot additional spectra from config.plots if defined
+        if cfg.plots:
+            print(f"  Plotting {len(cfg.plots)} spectra from config...")
+            for plot_config in cfg.plots:
+                try:
+                    freq, spec = DataLoader.load(plot_config.file, cfg.data_format)
+                    # Process this spectrum too
+                    proc_result = process_spectrum(freq, spec, cfg)
+                    proc_spec = proc_result["spectrum"]
+
+                    builder.plot_spectrum(
+                        freq, proc_spec,
+                        label=plot_config.label,
+                        color=plot_config.color,
+                        linewidth=plot_config.linewidth,
+                        linestyle=plot_config.linestyle,
+                        alpha=plot_config.alpha
+                    )
+                except Exception as e:
+                    print(f"  Warning: Could not load {plot_config.file}: {e}")
+
+        builder.set_axis_labels()
+        builder.configure_axes()
+
+        # Save figure
+        print(f"✓ Saving figure...")
+        experiment_name = cfg.experiment_id or "spectrum"
+        saved_files = builder.save(cfg.output_dir, experiment_name, cfg.output_formats)
+
+        for filepath in saved_files:
+            print(f"  → {filepath}")
+
+        builder.close()
+
+        print(f"\n✓ Complete!")
 
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)

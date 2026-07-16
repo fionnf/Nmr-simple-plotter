@@ -1,5 +1,6 @@
-"""Publication-quality style templates for NMR figures (Phase 2 - placeholder)."""
+"""Publication-quality style templates for NMR figures."""
 
+import matplotlib.pyplot as plt
 from typing import Dict, Any
 
 
@@ -16,6 +17,9 @@ STYLES = {
         "figure.dpi": 300,
         "savefig.dpi": 300,
         "lines.linewidth": 1.0,
+        "axes.linewidth": 0.8,
+        "xtick.major.width": 0.8,
+        "ytick.major.width": 0.8,
     },
     "jacs": {
         "font.family": "sans-serif",
@@ -28,6 +32,9 @@ STYLES = {
         "figure.dpi": 300,
         "savefig.dpi": 300,
         "lines.linewidth": 1.5,
+        "axes.linewidth": 1.0,
+        "xtick.major.width": 1.0,
+        "ytick.major.width": 1.0,
     },
     "custom": {
         "font.family": "sans-serif",
@@ -58,5 +65,5 @@ def apply_style(template: str = "nature") -> None:
     Args:
         template: Style template name
     """
-    # TODO: Implement matplotlib rcParams update
-    pass
+    style = get_style(template)
+    plt.rcParams.update(style)

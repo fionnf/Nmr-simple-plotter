@@ -1,6 +1,6 @@
 # NMR Simple Plotter
 
-Config-driven NMR plotting tool for Spinsolve (Magritek) data using nmrglue. Edit a YAML file, run one command, get a publication-ready figure.
+Config-driven NMR plotting tool for Spinsolve (Magritek) benchtop NMR data. Edit a YAML file, run one command, get a publication-ready figure.
 
 ## Setup
 
@@ -23,29 +23,13 @@ alias nmr-plot="python /path/to/nmr-simple-plotter/plot.py"
 alias nmr-phase="python /path/to/nmr-simple-plotter/phase_check.py"
 ```
 
-Then reload your shell:
+Reload your shell after editing:
 
 ```bash
 source ~/.zshrc
 ```
 
-After that, the full workflow from any terminal is:
-
-```bash
-nmr-activate                  # activate the environment
-cd /path/to/session/folder
-nmr-new                       # create plot.yaml interactively
-nmr-plot -c plot.yaml         # plot it
-nmr-deactivate                # done
-```
-
-## Scripts
-
-| Script | Purpose |
-|--------|---------|
-| `new_plot.py` | Run in a session folder — prompts for a description, lists experiments, writes `plot.yaml` |
-| `plot.py` | Main plotter — reads a YAML config and saves figures |
-| `phase_check.py` | Interactive phase correction with live sliders |
+---
 
 ## Workflow
 
@@ -55,47 +39,66 @@ nmr-deactivate                # done
 nmr-activate
 ```
 
-### 2. Initialise a plot config in your session folder
+### 2. Create a new plot config
 
-Navigate to a folder containing Spinsolve acquisition subfolders and run:
+Navigate to your experiment session folder (the one containing acquisition subfolders) and run:
 
 ```bash
 cd /path/to/session/folder
 nmr-new
 ```
 
-It will:
-1. Ask for a description (required — saved as a comment at the top of the YAML)
-2. List every Spinsolve subfolder it finds (`acqu.par` + `data.1d`)
-3. Let you pick which to include (`1`, `1,3`, `1-3`, or `all`)
-4. Write `plot.yaml` in the current folder, ready to edit and run
+You will be prompted for:
+1. **Description** — required; saved as a comment at the top of the YAML
+2. **Which experiments to include** — numbered list; accepts `1`, `1,3`, `1-3`, or `all`
+3. **Plot name** — becomes a new subdirectory; e.g. `tripf_dmso` creates `tripf_dmso/plot.yaml`
 
-### 3. Edit and plot
+The result is a clean folder structure:
 
-Open `plot.yaml`, adjust labels, colours, `xlim`, phase settings, etc., then:
-
-```bash
-nmr-plot -c plot.yaml
+```
+FF049/
+  260715-161733 TRIPF (FF049_008)/   ← raw Spinsolve data
+  tripf_dmso/
+    plot.yaml                         ← edit this
+    tripf_dmso.pdf                    ← created on first plot run
+  tripf_cdcl3/
+    plot.yaml
+    tripf_cdcl3.pdf
 ```
 
-Figures are saved next to `plot.yaml` (or wherever `output:` points).
+### 3. Edit the config
 
-### 4. Fix the phase (if needed)
+Open `plot.yaml` and adjust labels, colours, `xlim`, phase settings, etc. The full spectrum is shown by default — uncomment `xlim` once you know your peak region.
 
-If the phase from `proc.par` doesn't look right, use the interactive tool:
+### 4. Plot
 
 ```bash
-nmr-phase -p "260714-160018 Fluorine1D (FF048_013)" --xlim -60 -220
+nmr-plot -c tripf_dmso/plot.yaml
+```
+
+The figure is saved inside the same folder as `plot.yaml`.
+
+### 5. Fix the phase (if needed)
+
+```bash
+nmr-phase -p "../260715-161733 TRIPF (FF049_008)" --xlim -60 -220
 ```
 
 Optional flags: `--lb 5.0` (line broadening in Hz), `--zf 8` (zero-fill factor).
 
-Three sliders let you dial in the correction:
-- **p0** — zero-order (constant) phase shift
-- **p1** — first-order (frequency-dependent) phase shift
-- **pivot** — ppm position held fixed when sweeping p1 (red dashed line); place it on your main peak before adjusting p1
+**Interactive controls:**
 
-Click **Print values** to print the corrected values, then paste them into `plot.yaml`:
+| Control | Action |
+|---------|--------|
+| Click on spectrum | Place green anchor line on a peak (used by Autophase) |
+| **Autophase** button | Optimise p0/p1 via minimum entropy, seeded from the selected peak angle |
+| p0 slider | Zero-order phase shift (degrees) |
+| p1 slider | First-order phase shift (degrees) |
+| pivot slider | ppm position held fixed when sweeping p1 (red dashed line) — set to your main peak before adjusting p1 |
+| **Zoom / Full spectrum** | Toggle between `--xlim` window and full spectrum |
+| **Print values** | Print corrected p0/p1 to terminal |
+
+Copy the printed values into your `plot.yaml`:
 
 ```yaml
     phase: "manual"
@@ -103,19 +106,33 @@ Click **Print values** to print the corrected values, then paste them into `plot
     p1: -360.00
 ```
 
-### 5. Deactivate when done
+### 6. Deactivate when done
 
 ```bash
 nmr-deactivate
 ```
 
+---
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `new_plot.py` | Run in a session folder — prompts for description, experiments, and plot name; creates a subdirectory with `plot.yaml` |
+| `plot.py` | Main plotter — reads a YAML config and saves figures |
+| `phase_check.py` | Interactive phase correction with live sliders and autophase |
+
+---
+
 ## YAML Config Reference
 
 ```yaml
-# One or more spectra — overlay them by listing multiple entries
+# Description of this plot
+# Run: nmr-plot -c plot.yaml
+
 spectra:
-  - path: "path/to/spinsolve/experiment/directory"
-    label: "Sample A"           # legend label
+  - path: "../260715-161733 TRIPF (FF049_008)"  # relative to this yaml file
+    label: "TRIPF in DMSO"
     color: "tab:blue"
     linewidth: 1.0
     alpha: 1.0
@@ -126,17 +143,18 @@ spectra:
     # p0: 0.0                   # used only when phase: "manual"
     # p1: 0.0
 
-  # - path: "path/to/second/experiment"
-  #   label: "Sample B"
+  # Add more spectra to overlay or stack:
+  # - path: "../260715-161204 Fluorine1D (FF049_007)"
+  #   label: "FF049"
   #   color: "tab:orange"
   #   offset: 35                # stack above first spectrum
 
 figure:
-  size: [7.0, 2.5]             # [width, height] inches
-  x_unit: "ppm"               # "ppm" → auto "Chemical Shift (ppm)"
-                              # "hz"  → auto "Frequency Offset from Carrier (Hz)"
+  size: [6.0, 4.5]             # [width, height] inches
+  x_unit: "ppm"               # "ppm" → "Chemical Shift (ppm)"
+                              # "hz"  → "Frequency Offset from Carrier (Hz)"
   # xlabel: "override"        # uncomment to override the auto label
-  xlim: [-60, -220]           # display window
+  # xlim: [-60, -220]         # uncomment to set display window (high ppm, low ppm)
 
   box: false                  # true = full box, false = bottom spine only
   y_axis: false               # true = show y-axis and label
@@ -148,18 +166,18 @@ figure:
     fontsize: 9
     frameon: false
 
-# Text annotations on the spectrum
+# Text annotations:
 # labels:
 #   - text: "peak A"
-#     x: -130.5               # in ppm (or Hz if x_unit: "hz")
-#     y: 27.0                 # in intensity units
+#     x: -130.5               # ppm (or Hz if x_unit: "hz")
+#     y: 27.0                 # intensity units
 #     color: "black"
 #     fontsize: 9
 #     ha: "center"            # "left" | "center" | "right"
-#     va: "bottom"            # "top" | "center" | "bottom"
+#     va: "bottom"
 
-output: "figures/spectrum"
-formats: ["png", "pdf"]       # any combination of "png", "pdf", "svg"
+output: "tripf_dmso"          # filename stem, saved next to this yaml
+formats: ["pdf"]              # "png", "pdf", "svg"
 ```
 
 ### Phase options
@@ -170,17 +188,21 @@ formats: ["png", "pdf"]       # any combination of "png", "pdf", "svg"
 | `"auto"` | nmrglue ACME autophase algorithm |
 | `"manual"` | Uses the `p0` and `p1` values you provide (degrees) |
 
+---
+
 ## Data Format
 
-Point `path` at the Spinsolve experiment directory (the folder containing `acqu.par` and `data.1d`):
+Point `path` at the Spinsolve experiment directory (the folder containing `acqu.par` and `data.1d`). Paths are always resolved relative to the yaml file's location, so `../subfolder` points one level up into the session folder.
 
 ```
-260714-160018 Fluorine1D (FF048_013)/
+260715-161733 TRIPF (FF049_008)/
 ├── acqu.par
 ├── data.1d
 ├── proc.par
 └── ...
 ```
+
+---
 
 ## Authors
 

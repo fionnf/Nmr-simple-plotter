@@ -1,0 +1,135 @@
+############################################################
+#
+# Fluorine TRIP (Triple-Pulse) Excitation
+#
+# Suppresses background signal from probe materials outside
+# the sample coil, per Wang, Ramakrishna, Sun & Fu,
+# J. Magn. Reson. 332 (2021) 107067.
+#
+#   recycleDelay - 90(p1) - 90(p2) - 90(p3) - acqDelay - acquire
+#
+# How it works (from the paper): all three pulses use the
+# SAME flip angle. Material outside the coil sees a much
+# weaker, inhomogeneous B1 field, so its effective flip angle
+# is small -- and the TRIP phase cycle adds a
+# [1-cos(4*pi*v1*tp)]/2 scaling on top of the usual sin()
+# excitation profile, which is ~1 at 90 deg but collapses
+# toward zero at small flip angles. Your real sample (getting
+# a clean ~90 deg flip) is essentially unaffected; anything
+# outside the coil (small effective flip) gets suppressed by
+# roughly a factor of 8-34x depending on how far off 90deg it
+# actually experiences.
+#
+# Phase tables are the real fu_zg_trip tables (not re-derived
+# from the paper's prose description):
+#   p1 = 0,2,0,2,0,2,0,2,1,3,1,3,1,3,1,3
+#   p2 = 2,2,0,0,2,2,0,0,3,3,1,1,3,3,1,1
+#   p3 = 0,0,0,0,2,2,2,2,1,1,1,1,3,3,3,3  (fixed pair-wise, unchanged
+#                                          right before acquisition --
+#                                          this is what cancels acoustic
+#                                          ringing on subtraction)
+#   acquire = 0,2,2,0,2,0,0,2,1,3,3,1,3,1,1,3
+#
+# IMPORTANT: nrScans must be a MULTIPLE OF 4 minimum (per the
+# paper) for correct background/ringing cancellation -- 4 gives
+# the core effect, the full 16-step table adds CYCLOPS-style
+# quadrature-image rejection on top. Don't run with nrScans
+# not divisible by 4, or the cycle won't complete and you'll
+# get partial/incorrect cancellation.
+#
+############################################################
+
+procedure(pulse_program,dir,mode,pars)
+
+# Expose parameters for FX3 implementation
+   if(nrArgs == 3)
+      assignlist(pars)
+   endif
+
+# Interface description (name, label, ctrl, vartype)
+  interface = ["nucleus",          "Nucleus",                      "tb", "readonly_string";
+               "b1Freq19F",        "B1 Frequency (MHz)",           "tb", "freq";
+               "centerFreq19FPPM", "Centre frequency (ppm)",       "tb", "float";
+               "amplitude19F",     "Pulse amplitude (dB)",         "tb", "pulseamp";
+               "pulseLength19F",   "Pulse length (us) -- aim for ~90 deg", "tb", "pulselength";
+               "shiftPoints",      "Number of points to shift",    "tb", "float,[-10,10]";
+               "",                 "Editable timing",              "dv", "";
+               "recycleDelay",     "Recycle delay (ms)",           "tb", "ldelayms";
+               "acqDelay",         "Acquisition delay, dAcqDelay (us)", "tb", "sdelay";
+               "repTime",          "Repetition time (auto, ms)",   "tb", "reptime"]
+
+# Relationships to determine remaining variable values
+   relationships = ["nDataPnts   = nrPnts",
+                    "aTrip1      = amplitude19F",
+                    "dTrip1      = pulseLength19F",
+                    "aTrip2      = amplitude19F",
+                    "dTrip2      = pulseLength19F",
+                    "aTrip3      = amplitude19F",
+                    "dTrip3      = pulseLength19F",
+                    "dAcqDelay   = acqDelay",
+                    "offFreq19F  = (centerFreq19FPPM-wvPPMOffset19F)*b1Freq19F",
+                    "freqCh1     = double(b1Freq19F)+double(offFreq19F/1e6d)",
+                    "freqRx      = freqCh1",
+                    "totPnts     = nrPnts",
+                    "aOff = -6",
+                    "totTime     = acqTime",
+                    # 'w' prefix (long-delay/wx class) for wait().
+                    "wRecycle    = double(recycleDelay)*1000d",
+                    # repTime auto-computed: recycle + 3 pulses +
+                    # acqDelay + acquisition time. No artificial margin.
+                    "repTime     = double(recycleDelay) + 3d*double(dTrip1)/1000d + double(dAcqDelay)/1000d + acqTime"]
+
+# Define the tab groups and their order
+   groups = ["Pulse_sequence","Acquisition",
+              "Processing_Std","Display_Std","File_Settings"]
+
+# Compiled pulse-program parameter names for external stepping
+   variables = ["wRecycle","dAcqDelay"]
+
+# Pulse sequence
+   initpp(dir)                      # Reset internal parameter list
+   wait(wRecycle)                   # Recycle delay
+   pulse(1,aTrip1,p1,dTrip1)        # 1st pulse
+   pulse(1,aTrip2,p2,dTrip2)        # 2nd pulse
+   pulse(1,aTrip3,p3,dTrip3)        # 3rd pulse -- phase unchanged pairwise,
+                                     # this is what cancels acoustic ringing
+   delay(dAcqDelay)                 # Pulse - acquire delay
+   acquire("overwrite",nDataPnts)   # Acquire FID
+
+   parList = endpp(0)            # Combine commands and return parameter list
+
+# Phase cycle list -- the real fu_zg_trip tables, transcribed
+# directly (0/1/2/3 = 0/90/180/270 deg, same convention both
+# systems). 16 steps; nrScans MUST be a multiple of 4 minimum.
+  phaseList  = [0,2,0,2,0,2,0,2,1,3,1,3,1,3,1,3;
+                2,2,0,0,2,2,0,0,3,3,1,1,3,3,1,1;
+                0,0,0,0,2,2,2,2,1,1,1,1,3,3,3,3;
+                0,2,2,0,2,0,0,2,1,3,3,1,3,1,1,3]
+
+endproc(parList,groups,interface,relationships,variables,null,phaseList)
+
+#####################################################
+# Assign default parameters when making a new experiment
+#####################################################
+
+procedure(getFactoryBasedParameters, par)
+
+   specPar = gData->getXChannelParameters("19F")
+   if(specPar == null)
+      return(null)
+   endif
+   assignlist(specPar)
+
+   modelPar = ucsUtilities:getModelBasedParameters("19F",specPar)
+
+   par = ["rxGain         = $modelPar->rxGain$",
+          "pulseLength19F = $PulseLength_19F$",
+          "amplitude19F   = $PowerLevel_19F$",
+          "rxChannel      = \"1H\"",
+          "nucleus        = \"19F\"",
+          "b1Freq19F      = $Frequency_Lock$",
+          "recycleDelay   = 1000",
+          "acqDelay       = 55",
+          "nrScans        = 16"]
+
+endproc(par)

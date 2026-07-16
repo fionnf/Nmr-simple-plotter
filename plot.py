@@ -1,111 +1,157 @@
 #!/usr/bin/env python
-"""Simple NMR plotting script - edit config YAML and run this."""
-
-import sys
+"""Simple NMR plotter. Edit a YAML config and run:
+    python plot.py -c examples/config_spinsolve.yaml
+"""
 import argparse
+import yaml
+import numpy as np
+import nmrglue as ng
+import matplotlib.pyplot as plt
 from pathlib import Path
 
-# Add src to path
-sys.path.insert(0, str(Path(__file__).parent))
 
-from src.config import Config
-from src.data_loader import DataLoader
-from src.processing.pipeline import process_spectrum
-from src.processing.metrics import calculate_snr
-from src.plotting.figure_builder import FigureBuilder
+def process_spinsolve(path, lb=1.0, zf=1, phase="proc", p0=0.0, p1=0.0):
+    """Load and process a Spinsolve FID. Returns (ppm_axis, hz_axis, real_spectrum)."""
+    dic, data = ng.spinsolve.read(path)
+    acqu = dic["acqu"]
+    proc = dic["proc"]
+
+    obs        = float(acqu["b1Freq"])            # MHz
+    sw_hz      = float(acqu["bandwidth"]) * 1e3   # kHz → Hz
+    ppm_offset = float(proc.get("ppmOffset", 0))
+    p0_proc    = float(proc.get("p0Phase", 0))
+    p1_proc    = float(proc.get("p1Phase", 0))
+
+    # em expects lb in units of points: lb_pts = lb_hz / sw_hz
+    if lb > 0:
+        data = ng.proc_base.em(data, lb=lb / sw_hz)
+
+    if zf > 1:
+        data = ng.proc_base.zf_size(data, len(data) * zf)
+
+    data = ng.proc_base.fft(data)
+
+    if phase == "auto":
+        data = ng.proc_autophase.autops(data, "acme")
+    elif phase == "manual":
+        data = ng.proc_base.ps(data, p0=p0, p1=p1)
+    else:  # "proc" — use values from proc.par
+        data = ng.proc_base.ps(data, p0=p0_proc, p1=p1_proc)
+
+    npts   = len(data)
+    sw_ppm = sw_hz / obs
+    # ppm axis: high ppm on index 0 so inverted x-axis gives correct NMR display
+    ppm = np.linspace(ppm_offset + sw_ppm / 2,
+                      ppm_offset - sw_ppm / 2, npts)
+    hz  = ppm * obs
+
+    return ppm, hz, data.real
 
 
 def main():
-    """Main entry point."""
     parser = argparse.ArgumentParser(description="NMR Simple Plotter")
-    parser.add_argument("-c", "--config", required=True, help="Path to YAML config file")
-    parser.add_argument("-o", "--output-dir", help="Override output directory")
+    parser.add_argument("-c", "--config", required=True)
     args = parser.parse_args()
 
-    try:
-        # Load configuration
-        cfg = Config.from_yaml(args.config)
-        if args.output_dir:
-            cfg.output_dir = args.output_dir
+    with open(args.config) as f:
+        cfg = yaml.safe_load(f)
 
-        print(f"✓ Loaded config: {args.config}")
-        print(f"  Experiment: {cfg.experiment_id}")
-        print(f"  Data file: {cfg.data_file}")
-        print(f"  Output dir: {cfg.output_dir}")
+    # Resolve all paths relative to the YAML file's directory so the config
+    # and figures can live inside the experiment folder.
+    cfg_dir = Path(args.config).resolve().parent
+    for spec in cfg["spectra"]:
+        spec["path"] = str((cfg_dir / spec["path"]).resolve())
+    cfg["output"] = str(cfg_dir / cfg.get("output", "spectrum"))
 
-        # Load data
-        freq_axis, spectrum = DataLoader.load(cfg.data_file, cfg.data_format)
-        print(f"\n✓ Loaded spectrum: {len(spectrum)} points")
-        print(f"  Frequency range: {freq_axis.min():.1f} to {freq_axis.max():.1f} ppm")
-        print(f"  Intensity range: {spectrum.min():.0f} to {spectrum.max():.0f}")
+    fig_cfg  = cfg.get("figure", {})
+    figsize  = fig_cfg.get("size", [4.5, 6.0])
+    x_unit   = fig_cfg.get("x_unit", "ppm").lower()  # "ppm" or "hz"
+    show_box = fig_cfg.get("box", False)
+    show_y   = fig_cfg.get("y_axis", False)
 
-        # Process spectrum
-        print(f"\n✓ Processing spectrum...")
-        result = process_spectrum(freq_axis, spectrum, cfg)
-        processed_spectrum = result["spectrum"]
-        peaks = result["peak_indices"]
-        print(f"  Baseline corrected: {cfg.processing.baseline.method}")
-        print(f"  Phase correction: {'auto' if cfg.processing.phase.auto else 'manual'}")
-        print(f"  Smoothing: {cfg.processing.smoothing.method}")
-        print(f"  Peaks detected: {len(peaks)}")
+    fig, ax = plt.subplots(figsize=figsize)
 
-        # Calculate metrics
-        print(f"\n✓ Calculating metrics...")
-        if cfg.analysis.snr.enabled and cfg.analysis.snr.signal_region and cfg.analysis.snr.noise_region:
-            snr = calculate_snr(processed_spectrum, freq_axis, cfg.analysis.snr.signal_region, cfg.analysis.snr.noise_region)
-            print(f"  SNR: {snr:.1f}")
+    for spec in cfg["spectra"]:
+        ppm, hz, intensity = process_spinsolve(
+            path  = spec["path"],
+            lb    = spec.get("lb", 1.0),
+            zf    = spec.get("zf", 1),
+            phase = spec.get("phase", "proc"),
+            p0    = spec.get("p0", 0.0),
+            p1    = spec.get("p1", 0.0),
+        )
+        offset = spec.get("offset", 0.0)
+        x_data = hz if x_unit == "hz" else ppm
+        ax.plot(x_data, intensity + offset,
+                label     = spec.get("label", ""),
+                color     = spec.get("color"),
+                linewidth = spec.get("linewidth", 1.0),
+                alpha     = spec.get("alpha", 1.0))
 
-        if len(peaks) > 0:
-            print(f"  Peak positions: {[f'{freq_axis[p]:.1f}' for p in peaks[:3]]} ppm")
+    # X axis — auto-label based on x_unit unless overridden
+    default_xlabel = {
+        "ppm": "Chemical Shift (ppm)",
+        "hz":  "Frequency Offset from Carrier (Hz)",
+    }.get(x_unit, f"Chemical Shift ({x_unit})")
+    xlabel = fig_cfg.get("xlabel", default_xlabel)
+    ax.set_xlabel(xlabel)
+    ax.invert_xaxis()
 
-        # Create figure and plot
-        print(f"\n✓ Creating figure...")
-        builder = FigureBuilder(cfg)
+    xlim = fig_cfg.get("xlim")
+    if xlim:
+        ax.set_xlim(max(xlim), min(xlim))
 
-        # Plot main spectrum
-        builder.plot_spectrum(freq_axis, processed_spectrum, label=cfg.data_file)
+    # Y axis visibility
+    if not show_y:
+        ax.yaxis.set_visible(False)
+    else:
+        ax.set_ylabel(fig_cfg.get("ylabel", "Intensity (a.u.)"))
 
-        # Plot additional spectra from config.plots if defined
-        if cfg.plots:
-            print(f"  Plotting {len(cfg.plots)} spectra from config...")
-            for plot_config in cfg.plots:
-                try:
-                    freq, spec = DataLoader.load(plot_config.file, cfg.data_format)
-                    # Process this spectrum too
-                    proc_result = process_spectrum(freq, spec, cfg)
-                    proc_spec = proc_result["spectrum"]
+    # Box / spines
+    if show_box:
+        for spine in ax.spines.values():
+            spine.set_visible(True)
+    else:
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.spines["left"].set_visible(False)
 
-                    builder.plot_spectrum(
-                        freq, proc_spec,
-                        label=plot_config.label,
-                        color=plot_config.color,
-                        linewidth=plot_config.linewidth,
-                        linestyle=plot_config.linestyle,
-                        alpha=plot_config.alpha
-                    )
-                except Exception as e:
-                    print(f"  Warning: Could not load {plot_config.file}: {e}")
+    # Legend
+    legend_cfg = fig_cfg.get("legend", {})
+    if legend_cfg.get("show", True) and any(s.get("label") for s in cfg["spectra"]):
+        loc = legend_cfg.get("position", "upper right")
+        # support [x, y] list for manual bbox_to_anchor placement
+        if isinstance(loc, list):
+            ax.legend(bbox_to_anchor=loc, loc="lower left",
+                      fontsize=legend_cfg.get("fontsize", 9),
+                      frameon=legend_cfg.get("frameon", False))
+        else:
+            ax.legend(loc=loc,
+                      fontsize=legend_cfg.get("fontsize", 9),
+                      frameon=legend_cfg.get("frameon", False))
 
-        builder.set_axis_labels()
-        builder.configure_axes()
+    # Text annotations / labels
+    for lbl in cfg.get("labels", []):
+        if not lbl.get("show", True):
+            continue
+        ax.text(lbl["x"], lbl["y"],
+                lbl["text"],
+                color    = lbl.get("color", "black"),
+                fontsize = lbl.get("fontsize", 9),
+                ha       = lbl.get("ha", "center"),
+                va       = lbl.get("va", "bottom"))
 
-        # Save figure
-        print(f"✓ Saving figure...")
-        experiment_name = cfg.experiment_id or "spectrum"
-        saved_files = builder.save(cfg.output_dir, experiment_name, cfg.output_formats)
+    ax.grid(False)
+    fig.tight_layout()
 
-        for filepath in saved_files:
-            print(f"  → {filepath}")
+    output = cfg.get("output", "figures/spectrum")
+    Path(output).parent.mkdir(parents=True, exist_ok=True)
+    for fmt in cfg.get("formats", ["png", "pdf"]):
+        filepath = f"{output}.{fmt}"
+        fig.savefig(filepath, dpi=300, bbox_inches="tight")
+        print(f"Saved: {filepath}")
 
-        builder.close()
-
-        print(f"\n✓ Complete!")
-
-    except Exception as e:
-        print(f"Error: {e}", file=sys.stderr)
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+    plt.close(fig)
 
 
 if __name__ == "__main__":

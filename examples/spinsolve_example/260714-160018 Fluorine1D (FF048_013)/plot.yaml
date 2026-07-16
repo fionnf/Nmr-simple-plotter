@@ -1,0 +1,30 @@
+# Drop this file into a Spinsolve experiment folder and run:
+#   python /path/to/plot.py -c plot.yaml
+#
+# All paths are relative to this file, so "." means the folder it lives in.
+
+spectra:
+  - path: "."           # "." = this experiment folder
+    label: ""
+    color: "tab:blue"
+    linewidth: 1.0
+    lb: 5.0
+    zf: 8
+    phase: "proc"       # "proc" | "auto" | "manual"
+    # p0: 0.0
+    # p1: 0.0
+    offset: 0
+
+figure:
+  size: [6.0, 4.5]
+  x_unit: "ppm"         # "ppm" or "hz"
+  xlim: [-60, -220]
+
+  box: false
+  y_axis: false
+
+  legend:
+    show: false
+
+output: "spectrum"      # saves spectrum.png and spectrum.pdf next to this file
+formats: ["png", "pdf"]

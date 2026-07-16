@@ -1,0 +1,57 @@
+# 19F NMR - Spinsolve example
+# Run: python plot.py -c examples/config_spinsolve.yaml
+#
+# To overlay spectra: add more entries under "spectra".
+# To stack them vertically: set "offset" on each entry.
+
+spectra:
+  - path: "spinsolve_example/260714-160018 Fluorine1D (FF048_013)"
+    label: "FF048"
+    color: "tab:blue"
+    linewidth: 1.0
+    lb: 5.0       # line broadening in Hz
+    zf: 8         # zero-fill factor
+    phase: "proc" # "proc" = use phase from proc.par, "auto" = autophase, "manual" = use p0/p1 below
+    # p0: 0.0    # zero-order phase (degrees) — used only when phase: "manual"
+    # p1: 0.0    # first-order phase (degrees) — used only when phase: "manual"
+    offset: 0     # vertical offset for stacking (intensity units)
+    alpha: 1.0
+
+  # Uncomment to overlay a second spectrum:
+  # - path: "examples/spinsolve_example/260715-161204 Fluorine1D (FF049_007)"
+  #   label: "FF049"
+  #   color: "tab:orange"
+  #   linewidth: 1.0
+  #   lb: 5.0
+  #   zf: 8
+  #   phase: "proc"
+  #   offset: 35   # shift up by 35 intensity units to stack above FF048
+
+figure:
+  size: [6.0, 4.5]         # [width, height] in inches — 3:4 portrait ratio
+  x_unit: "ppm"            # "ppm" → "Chemical Shift (ppm)" | "hz" → "Frequency Offset from Carrier (Hz)"
+  # xlabel: "override label" # uncomment to override the auto-generated x-axis label
+  xlim: [-60, -220]        # adjust to your peak region
+
+  box: false               # true = full bounding box, false = open (no top/right/left spines)
+  y_axis: false            # true = show y-axis tick labels and label
+
+  legend:
+    show: true
+    position: "upper right"  # string ("upper right" etc.) or [x, y] for bbox_to_anchor
+    fontsize: 9
+    frameon: false
+
+# Optional text labels on the spectrum
+# labels:
+#   - text: "peak A"
+#     show: true          # set false to hide without deleting
+#     x: -130.5           # in ppm (or Hz if x_unit: "hz")
+#     y: 27.0             # in intensity units
+#     color: "black"
+#     fontsize: 9
+#     ha: "center"        # "left", "center", "right"
+#     va: "bottom"        # "top", "center", "bottom"
+
+output: "figures/spinsolve_ff048"
+formats: ["png", "pdf"]

@@ -1,0 +1,15 @@
+apodizationFunction = "exp:50"
+baseLineCorrectionMethod = "None"
+displayInPPM = "yes"
+ftOrigin = "Start"
+ftType = "Complex"
+p0Phase = -148.843
+p1Phase = 0
+p1Pivot = 0
+p1FixedPhase = 0
+phaseMethod = "p0, p1 fixed phase"
+ppmOffset = -131
+zeroFill = 8
+plotWidth = 301282
+plotStart = -150641
+shiftPoints = 2

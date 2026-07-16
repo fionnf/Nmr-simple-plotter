@@ -1,152 +1,122 @@
 # NMR Simple Plotter
 
-Config-driven NMR data processing and plotting tool for publication-quality figures. All configuration in YAML files - commit to git for reproducibility.
+Config-driven NMR plotting tool for Spinsolve (Magritek) data using nmrglue. Edit a YAML file, run one command, get a publication-ready figure.
 
 ## Quick Start
 
 ```bash
-# Install dependencies
 pip install -r requirements.txt
-
-# Run plotter with config file
-python plot.py -c examples/config_exp48_static.yaml
+python plot.py -c examples/config_spinsolve.yaml
 ```
 
-## How It Works
+## Scripts
 
-1. **Edit config YAML** - Adjust experiment ID, data file, processing parameters, styling
-2. **Run script** - `python plot.py -c your_config.yaml`
-3. **Get figures** - Publication-quality PNG + PDF in `figures/` directory
+| Script | Purpose |
+|--------|---------|
+| `plot.py` | Main plotter — reads a YAML config and saves figures |
+| `phase_check.py` | Interactive phase correction with live sliders |
 
-## Configuration
+## Plotting
 
-All settings in YAML files. Example:
+```bash
+python plot.py -c examples/config_spinsolve.yaml
+```
+
+Figures are saved to the path set in `output:` (default `figures/`).
+
+## Phase Correction
+
+If the phase from `proc.par` doesn't look right, use the interactive tool to find good values:
+
+```bash
+python phase_check.py -p "examples/spinsolve_example/260714-160018 Fluorine1D (FF048_013)"
+
+# optional flags
+#   --lb 5.0          line broadening in Hz
+#   --zf 8            zero-fill factor
+#   --xlim -60 -220   ppm display range
+```
+
+Three sliders are shown:
+- **p0** — zero-order (constant) phase shift
+- **p1** — first-order (frequency-dependent) phase shift
+- **pivot** — the ppm position that stays fixed when sweeping p1 (shown as a red dashed line); set this to your main peak before adjusting p1
+
+Click **Print values** to copy the corrected p0/p1 into your YAML.
+
+## YAML Config Reference
 
 ```yaml
-experiment_id: "exp-48"
-data_file: "data/spectrum.csv"
-data_format: "csv"
+# One or more spectra — overlay them by listing multiple entries
+spectra:
+  - path: "path/to/spinsolve/experiment/directory"
+    label: "Sample A"           # legend label
+    color: "tab:blue"
+    linewidth: 1.0
+    alpha: 1.0
+    lb: 5.0                     # line broadening in Hz
+    zf: 8                       # zero-fill factor
+    offset: 0                   # vertical shift for stacking (intensity units)
+    phase: "proc"               # "proc" | "auto" | "manual"
+    # p0: 0.0                   # used only when phase: "manual"
+    # p1: 0.0
 
-processing:
-  phase:
-    auto: true
-    phase0: 0
-  baseline:
-    method: "polynomial"
-    poly_order: 3
+  # - path: "path/to/second/experiment"
+  #   label: "Sample B"
+  #   color: "tab:orange"
+  #   offset: 35                # stack above first spectrum
 
-figure_style:
-  template: "nature"  # or "jacs", "custom"
-  dpi: 300
+figure:
+  size: [7.0, 2.5]             # [width, height] inches
+  x_unit: "ppm"               # "ppm" → auto "Chemical Shift (ppm)"
+                              # "hz"  → auto "Frequency Offset from Carrier (Hz)"
+  # xlabel: "override"        # uncomment to override the auto label
+  xlim: [-60, -220]           # display window
 
-output_formats: ["pdf", "png"]
+  box: false                  # true = full box, false = bottom spine only
+  y_axis: false               # true = show y-axis and label
+  ylabel: "Intensity (a.u.)"  # only shown when y_axis: true
+
+  legend:
+    show: true
+    position: "upper right"   # string or [x, y] for manual placement
+    fontsize: 9
+    frameon: false
+
+# Text annotations on the spectrum
+# labels:
+#   - text: "peak A"
+#     x: -130.5               # in ppm (or Hz if x_unit: "hz")
+#     y: 27.0                 # in intensity units
+#     color: "black"
+#     fontsize: 9
+#     ha: "center"            # "left" | "center" | "right"
+#     va: "bottom"            # "top" | "center" | "bottom"
+
+output: "figures/spectrum"
+formats: ["png", "pdf"]       # any combination of "png", "pdf", "svg"
 ```
 
-## Features (Roadmap)
+### Phase options
 
-### Phase 0: Infrastructure ✓
-- Pydantic config validation
-- Generic data loader (CSV, HDF5, Bruker)
-- CLI structure
-
-### Phase 1: Processing (In Progress)
-- Phase correction (auto + manual)
-- Baseline correction (polynomial, AIRPLS, spline)
-- Smoothing (Savitzky-Golay, moving average, Gaussian)
-- Peak detection and annotation
-- Metrics (FWHM, SNR, integral)
-
-### Phase 2: Publication Styling
-- Journal templates (Nature, JACS)
-- Multi-plot layouts
-- Annotations (text, arrows, insets)
-- 300 DPI export
-
-### Phase 3: Analysis
-- Linewidth tracking
-- SNR calculation
-- Angle sweep analysis
-- Magic angle detection
-- High-field comparison
-
-### Phase 4: Batch & Automation
-- Multi-config batch processing
-- Parameter sweeps
-- Directory watcher for real-time plotting
-- Figure index generation
-
-### Phase 5: Interactive Reports
-- PDF report compilation
-- Interactive HTML (Plotly)
-- Markdown report indices
-
-## Example Configs
-
-- `examples/config_exp48_static.yaml` - Static spectrum with analysis
-- `examples/config_exp49_sweep.yaml` - Magic angle sweep series
-
-Edit these and run:
-```bash
-python plot.py -c examples/config_exp48_static.yaml
-python plot.py -c examples/config_exp49_sweep.yaml
-```
+| Value | Behaviour |
+|-------|-----------|
+| `"proc"` | Uses `p0Phase` / `p1Phase` stored in `proc.par` by the Spinsolve software |
+| `"auto"` | nmrglue ACME autophase algorithm |
+| `"manual"` | Uses the `p0` and `p1` values you provide (degrees) |
 
 ## Data Format
 
-Supports:
-- **CSV/TXT**: Two columns (chemical_shift, intensity)
-- **Spinsolve HDF5**: Native format from Spinsolve console
-- **Bruker FID**: TopSpin format (binary)
-
-Example CSV:
-```
-chemical_shift,intensity
--100.0,500
--90.0,800
--80.0,600
-...
-```
-
-## Vault Integration
-
-Configs stored alongside experiment logs in `phd_dash_vault/experiments/`:
+Point `path` at the Spinsolve experiment directory (the folder containing `acqu.par` and `data.1d`):
 
 ```
-phd_dash_vault/experiments/
-├── 2026-07-16-exp-48.md
-├── 2026-07-16-exp-48-plotting-config.yaml
-├── 2026-07-16-exp-49.md
-└── 2026-07-16-exp-49-plotting-config.yaml
+260714-160018 Fluorine1D (FF048_013)/
+├── acqu.par
+├── data.1d
+├── proc.par
+└── ...
 ```
-
-Recreate figures anytime:
-```bash
-python plot.py -c phd_dash_vault/experiments/2026-07-16-exp-48-plotting-config.yaml
-```
-
-## Testing
-
-```bash
-pytest tests/ -v
-pytest tests/ --cov=src  # Coverage report
-```
-
-## Development
-
-Phase-based implementation:
-1. **Phase 0** - Infrastructure & config ✓
-2. **Phase 1** - Processing pipeline
-3. **Phase 2** - Figure styling
-4. **Phase 3** - Analysis & metrics
-5. **Phase 4** - Batch processing
-6. **Phase 5** - Interactive features
-
-See `/root/.claude/plans/concurrent-churning-stroustrup.md` for detailed plan.
 
 ## Authors
 
-- Fionn Ferreira (fionn.ferreira@phys.chem.ethz.ch)
-
-## License
-
-MIT
+Fionn Ferreira — fionn.ferreira@phys.chem.ethz.ch

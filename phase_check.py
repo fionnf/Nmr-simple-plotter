@@ -23,7 +23,7 @@ from scipy.optimize import minimize
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 
-from nmr_io import load_fid_for_phasing as load_fid
+from nmr_io import load_fid_for_phasing as load_fid, resolve_experiment_path
 
 
 def apply_phase(fft_data, p0, p1, pivot_idx):
@@ -58,14 +58,16 @@ def _autophase(fft_data, peak_idx=None):
 
 def main():
     parser = argparse.ArgumentParser(description="Interactive NMR phase correction")
-    parser.add_argument("-p", "--path", required=True, help="Spinsolve or TopSpin experiment directory")
+    parser.add_argument("-p", "--path", default=None,
+                        help="Spinsolve or TopSpin experiment directory (defaults to the current directory)")
     parser.add_argument("--lb",   type=float, default=5.0, help="Line broadening in Hz")
     parser.add_argument("--zf",   type=int,   default=8,   help="Zero-fill factor")
     parser.add_argument("--xlim", nargs=2, type=float, default=None,
                         metavar=("HIGH", "LOW"), help="ppm zoom window e.g. --xlim -60 -220")
     args = parser.parse_args()
 
-    ppm, fft_data, p0_init, p1_init = load_fid(args.path, lb=args.lb, zf=args.zf)
+    path = resolve_experiment_path(args.path)
+    ppm, fft_data, p0_init, p1_init = load_fid(path, lb=args.lb, zf=args.zf)
     N = len(fft_data)
 
     ppm_full_hi = ppm.max()
@@ -200,7 +202,7 @@ def main():
 
     def on_save(_):
         p0_yaml, p1 = _yaml_phases()
-        phase_file = Path(args.path) / "phases.txt"
+        phase_file = Path(path) / "phases.txt"
         phase_file.write_text(f"p0 = {p0_yaml:.4f}\np1 = {p1:.4f}\n")
         print(f"Saved phases to: {phase_file}")
         title.set_text(

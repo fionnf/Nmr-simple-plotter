@@ -113,7 +113,14 @@ nmr-plot
 nmr-phase -p "../260715-161733 TRIPF (FF049_008)" --xlim -60 -220
 ```
 
-Optional flags: `--lb 5.0` (line broadening in Hz), `--zf 8` (zero-fill factor).
+Or, if you're already standing inside the experiment folder itself:
+
+```bash
+cd "../260715-161733 TRIPF (FF049_008)"
+nmr-phase --xlim -60 -220
+```
+
+`-p`/`--path` defaults to the current directory, so `nmr-phase` works with no path argument as long as you're inside a folder containing `acqu.par`+`data.1d` (Spinsolve) or `acqus`+`fid` (TopSpin). Optional flags: `--lb 5.0` (line broadening in Hz), `--zf 8` (zero-fill factor).
 
 **Interactive controls:**
 
@@ -165,15 +172,15 @@ nmr-deactivate
 
 ## Command reference
 
-| Command          | Usage                                        | Purpose                                                                                                               |
-| ---------------- | -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `nmr-activate`   | `nmr-activate`                               | Activate the tool's virtualenv                                                                                        |
-| `nmr-deactivate` | `nmr-deactivate`                             | Deactivate the virtualenv                                                                                             |
-| `nmr-new`        | `nmr-new`                                    | Run in a session folder — prompts for description, experiments, and plot name; creates `plt_<name>/plot.yaml`         |
-| `nmr-plot`       | `nmr-plot [-c plot.yaml]`                    | Render the figure(s) + a `.log` file. `-c` defaults to `./plot.yaml`                                                  |
-| `nmr-phase`      | `nmr-phase -p <experiment dir> [--xlim H L]` | Interactive phase correction (sliders + autophase), saves `phases.txt`                                                |
-| `nmr-scale`      | `nmr-scale [-c plot.yaml] [--xlim H L]`      | Interactive vertical-scale sliders for stacked/overlaid plots, saves into `plot.yaml`. `-c` defaults to `./plot.yaml` |
-| `nmr-help`       | `nmr-help`                                   | List all available commands                                                                                           |
+| Command          | Usage                                          | Purpose                                                                                                               |
+| ---------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `nmr-activate`   | `nmr-activate`                                 | Activate the tool's virtualenv                                                                                        |
+| `nmr-deactivate` | `nmr-deactivate`                               | Deactivate the virtualenv                                                                                             |
+| `nmr-new`        | `nmr-new`                                      | Run in a session folder — prompts for description, experiments, and plot name; creates `plt_<name>/plot.yaml`         |
+| `nmr-plot`       | `nmr-plot [-c plot.yaml]`                      | Render the figure(s) + a `.log` file. `-c` defaults to `./plot.yaml`                                                  |
+| `nmr-phase`      | `nmr-phase [-p <experiment dir>] [--xlim H L]` | Interactive phase correction (sliders + autophase), saves `phases.txt`. `-p` defaults to the current directory        |
+| `nmr-scale`      | `nmr-scale [-c plot.yaml] [--xlim H L]`        | Interactive vertical-scale sliders for stacked/overlaid plots, saves into `plot.yaml`. `-c` defaults to `./plot.yaml` |
+| `nmr-help`       | `nmr-help`                                     | List all available commands                                                                                           |
 
 ### Underlying scripts
 

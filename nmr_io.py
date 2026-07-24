@@ -25,6 +25,20 @@ def resolve_config_path(config_arg: str | None) -> str:
     return default
 
 
+def resolve_experiment_path(path_arg: str | None) -> str:
+    """Resolve the --path argument, defaulting to the current directory when
+    omitted so commands just work when run from inside an experiment folder."""
+    if path_arg:
+        return path_arg
+    if is_experiment_dir(Path(".")):
+        return "."
+    raise SystemExit(
+        "No Spinsolve or TopSpin experiment found in the current directory.\n"
+        "Pass -p/--path explicitly, or cd into the experiment folder "
+        "(containing acqu.par + data.1d, or acqus + fid)."
+    )
+
+
 def load_plot_config(config_path: str) -> dict:
     """Load a plot.yaml, resolving spectra paths and output relative to the yaml's directory."""
     with open(config_path) as f:

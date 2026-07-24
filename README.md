@@ -120,7 +120,19 @@ cd "../260715-161733 TRIPF (FF049_008)"
 nmr-phase --xlim -60 -220
 ```
 
-`-p`/`--path` defaults to the current directory, so `nmr-phase` works with no path argument as long as you're inside a folder containing `acqu.par`+`data.1d` (Spinsolve) or `acqus`+`fid` (TopSpin). Optional flags: `--lb 5.0` (line broadening in Hz), `--zf 8` (zero-fill factor).
+Or from inside the `plt_*` plot folder, with no path at all:
+
+```bash
+cd plt_tripf_dmso
+nmr-phase --xlim -60 -220
+```
+
+`-p`/`--path` defaults to:
+
+1. the current directory, if it's itself an experiment folder (`acqu.par`+`data.1d`, or `acqus`+`fid`);
+2. otherwise, the `spectra` list in a `plot.yaml` found in the current directory — auto-picked if there's only one spectrum, or otherwise selected via `--spectrum <index-or-label>` (e.g. `--spectrum 2` or `--spectrum "TRIPF in DMSO"`), or prompted for interactively if `--spectrum` is omitted.
+
+Optional flags: `--lb 5.0` (line broadening in Hz), `--zf 8` (zero-fill factor).
 
 **Interactive controls:**
 
@@ -172,15 +184,15 @@ nmr-deactivate
 
 ## Command reference
 
-| Command          | Usage                                          | Purpose                                                                                                               |
-| ---------------- | ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `nmr-activate`   | `nmr-activate`                                 | Activate the tool's virtualenv                                                                                        |
-| `nmr-deactivate` | `nmr-deactivate`                               | Deactivate the virtualenv                                                                                             |
-| `nmr-new`        | `nmr-new`                                      | Run in a session folder — prompts for description, experiments, and plot name; creates `plt_<name>/plot.yaml`         |
-| `nmr-plot`       | `nmr-plot [-c plot.yaml]`                      | Render the figure(s) + a `.log` file. `-c` defaults to `./plot.yaml`                                                  |
-| `nmr-phase`      | `nmr-phase [-p <experiment dir>] [--xlim H L]` | Interactive phase correction (sliders + autophase), saves `phases.txt`. `-p` defaults to the current directory        |
-| `nmr-scale`      | `nmr-scale [-c plot.yaml] [--xlim H L]`        | Interactive vertical-scale sliders for stacked/overlaid plots, saves into `plot.yaml`. `-c` defaults to `./plot.yaml` |
-| `nmr-help`       | `nmr-help`                                     | List all available commands                                                                                           |
+| Command          | Usage                                                                    | Purpose                                                                                                                                                |
+| ---------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `nmr-activate`   | `nmr-activate`                                                           | Activate the tool's virtualenv                                                                                                                         |
+| `nmr-deactivate` | `nmr-deactivate`                                                         | Deactivate the virtualenv                                                                                                                              |
+| `nmr-new`        | `nmr-new`                                                                | Run in a session folder — prompts for description, experiments, and plot name; creates `plt_<name>/plot.yaml`                                          |
+| `nmr-plot`       | `nmr-plot [-c plot.yaml]`                                                | Render the figure(s) + a `.log` file. `-c` defaults to `./plot.yaml`                                                                                   |
+| `nmr-phase`      | `nmr-phase [-p <experiment dir>] [--spectrum <i-or-label>] [--xlim H L]` | Interactive phase correction (sliders + autophase), saves `phases.txt`. `-p` defaults to the current directory, or a spectrum from a `plot.yaml` there |
+| `nmr-scale`      | `nmr-scale [-c plot.yaml] [--xlim H L]`                                  | Interactive vertical-scale sliders for stacked/overlaid plots, saves into `plot.yaml`. `-c` defaults to `./plot.yaml`                                  |
+| `nmr-help`       | `nmr-help`                                                               | List all available commands                                                                                                                            |
 
 ### Underlying scripts
 
@@ -295,12 +307,14 @@ For TopSpin, `phase: "proc"` reads the spectrum TopSpin itself already processed
 
 ## Troubleshooting
 
-| Symptom                                                    | Fix                                                                                                                                                                                   |
-| ---------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `error: the following arguments are required: -c/--config` | You ran `nmr-plot`/`nmr-scale` outside a `plt_*` folder with no `plot.yaml` in the current directory. Either `cd` into the plot's folder, or pass `-c path/to/plot.yaml` explicitly.  |
-| `No 'plot.yaml' found in the current directory.`           | Same as above — run `nmr-new` first to generate one, or pass `-c` explicitly.                                                                                                         |
-| `Unrecognized NMR data format in: ...`                     | The `path` doesn't contain `acqu.par`+`data.1d` (Spinsolve) or `acqus`+`fid` (TopSpin). For TopSpin, make sure you're pointing at the numbered expno subfolder, not the dataset root. |
-| No experiment folders found by `nmr-new`                   | Run it from inside the session folder that directly contains the experiment subfolders (Spinsolve session folders, or a TopSpin dataset's expno folders like `1`, `2`, `9`).          |
+| Symptom                                                                 | Fix                                                                                                                                                                                   |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `error: the following arguments are required: -c/--config`              | You ran `nmr-plot`/`nmr-scale` outside a `plt_*` folder with no `plot.yaml` in the current directory. Either `cd` into the plot's folder, or pass `-c path/to/plot.yaml` explicitly.  |
+| `No 'plot.yaml' found in the current directory.`                        | Same as above — run `nmr-new` first to generate one, or pass `-c` explicitly.                                                                                                         |
+| `Unrecognized NMR data format in: ...`                                  | The `path` doesn't contain `acqu.par`+`data.1d` (Spinsolve) or `acqus`+`fid` (TopSpin). For TopSpin, make sure you're pointing at the numbered expno subfolder, not the dataset root. |
+| No experiment folders found by `nmr-new`                                | Run it from inside the session folder that directly contains the experiment subfolders (Spinsolve session folders, or a TopSpin dataset's expno folders like `1`, `2`, `9`).          |
+| `No Spinsolve or TopSpin experiment found ... and no plot.yaml either.` | `nmr-phase` was run somewhere that's neither an experiment folder nor a plot folder. Pass `-p` explicitly, or `cd` into one of those.                                                 |
+| `nmr-phase` asks "Which one to phase-check?"                            | You're in a `plt_*` folder whose `plot.yaml` has more than one spectrum. Answer the prompt, or rerun with `--spectrum <index-or-label>` to skip it.                                   |
 
 ---
 

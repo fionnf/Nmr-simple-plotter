@@ -25,18 +25,65 @@ def resolve_config_path(config_arg: str | None) -> str:
     return default
 
 
-def resolve_experiment_path(path_arg: str | None) -> str:
-    """Resolve the --path argument, defaulting to the current directory when
-    omitted so commands just work when run from inside an experiment folder."""
+def resolve_experiment_path(path_arg: str | None, spectrum_arg: str | None = None) -> str:
+    """Resolve the --path argument for nmr-phase.
+
+    Priority when --path is omitted:
+      1. the current directory, if it's itself an experiment folder
+      2. a plot.yaml in the current directory — its `spectra` list is used to
+         pick a target (auto-picked if there's only one; otherwise matched
+         against --spectrum by index/label, or prompted for interactively)
+    """
     if path_arg:
         return path_arg
+
     if is_experiment_dir(Path(".")):
         return "."
+
+    if Path("plot.yaml").exists():
+        specs = load_plot_config("plot.yaml")["spectra"]
+        if not specs:
+            raise SystemExit("plot.yaml has no spectra.")
+        if len(specs) == 1:
+            return specs[0]["path"]
+        return _pick_spectrum(specs, spectrum_arg)["path"]
+
     raise SystemExit(
-        "No Spinsolve or TopSpin experiment found in the current directory.\n"
-        "Pass -p/--path explicitly, or cd into the experiment folder "
-        "(containing acqu.par + data.1d, or acqus + fid)."
+        "No Spinsolve or TopSpin experiment found in the current directory, "
+        "and no plot.yaml either.\n"
+        "Pass -p/--path explicitly, cd into the experiment folder "
+        "(containing acqu.par + data.1d, or acqus + fid), "
+        "or cd into a plt_* folder containing plot.yaml."
     )
+
+
+def _pick_spectrum(specs: list, spectrum_arg: str | None) -> dict:
+    """Select one spectrum dict from a plot.yaml's `spectra` list, by 1-based
+    index or label if given, else prompted interactively."""
+    def _match(token: str):
+        if token.isdigit():
+            idx = int(token) - 1
+            if 0 <= idx < len(specs):
+                return specs[idx]
+        for s in specs:
+            if s.get("label") == token:
+                return s
+        return None
+
+    if spectrum_arg:
+        match = _match(spectrum_arg)
+        if match is None:
+            raise SystemExit(f"No spectrum matching {spectrum_arg!r} in plot.yaml.")
+        return match
+
+    print("Multiple spectra found in plot.yaml:")
+    for i, s in enumerate(specs, 1):
+        print(f"  [{i}] {s.get('label', s['path'])}")
+    choice = input("Which one to phase-check? > ").strip()
+    match = _match(choice)
+    if match is None:
+        raise SystemExit(f"Invalid selection: {choice!r}")
+    return match
 
 
 def load_plot_config(config_path: str) -> dict:

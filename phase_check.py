@@ -59,14 +59,18 @@ def _autophase(fft_data, peak_idx=None):
 def main():
     parser = argparse.ArgumentParser(description="Interactive NMR phase correction")
     parser.add_argument("-p", "--path", default=None,
-                        help="Spinsolve or TopSpin experiment directory (defaults to the current directory)")
+                        help="Spinsolve or TopSpin experiment directory. Defaults to the current "
+                             "directory, or — if that's a plot.yaml folder instead — one of its spectra")
+    parser.add_argument("--spectrum", default=None,
+                        help="When run in a plot.yaml folder with multiple spectra, select which one "
+                             "by 1-based index or label, non-interactively")
     parser.add_argument("--lb",   type=float, default=5.0, help="Line broadening in Hz")
     parser.add_argument("--zf",   type=int,   default=8,   help="Zero-fill factor")
     parser.add_argument("--xlim", nargs=2, type=float, default=None,
                         metavar=("HIGH", "LOW"), help="ppm zoom window e.g. --xlim -60 -220")
     args = parser.parse_args()
 
-    path = resolve_experiment_path(args.path)
+    path = resolve_experiment_path(args.path, args.spectrum)
     ppm, fft_data, p0_init, p1_init = load_fid(path, lb=args.lb, zf=args.zf)
     N = len(fft_data)
 

@@ -8,6 +8,33 @@ from pathlib import Path
 
 import numpy as np
 import nmrglue as ng
+import yaml
+
+
+def resolve_config_path(config_arg: str | None) -> str:
+    """Resolve the --config argument, defaulting to ./plot.yaml when omitted
+    so commands just work when run from inside a plt_* folder."""
+    if config_arg:
+        return config_arg
+    default = "plot.yaml"
+    if not Path(default).exists():
+        raise SystemExit(
+            f"No {default!r} found in the current directory.\n"
+            "Pass -c/--config explicitly, or cd into the plt_* folder created by nmr-new."
+        )
+    return default
+
+
+def load_plot_config(config_path: str) -> dict:
+    """Load a plot.yaml, resolving spectra paths and output relative to the yaml's directory."""
+    with open(config_path) as f:
+        cfg = yaml.safe_load(f)
+    cfg_dir = Path(config_path).resolve().parent
+    cfg["_config_path"] = str(Path(config_path).resolve())
+    for spec in cfg["spectra"]:
+        spec["path"] = str((cfg_dir / spec["path"]).resolve())
+    cfg["output"] = str(cfg_dir / cfg.get("output", "spectrum"))
+    return cfg
 
 
 def detect_format(path: str) -> str:

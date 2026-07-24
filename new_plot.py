@@ -69,6 +69,7 @@ def build_yaml(comment: str, selected: list[Path], plot_name: str) -> str:
             f'    phase: "proc"   # proc | saved | auto | manual',
             f'    # p0: 0.0',
             f'    # p1: 0.0',
+            f'    # scale: 1.0   # vertical intensity multiplier — adjust with nmr-scale',
             f'    offset: 0',
             '',
         ]
@@ -88,7 +89,7 @@ def build_yaml(comment: str, selected: list[Path], plot_name: str) -> str:
         "    frameon: false",
         "",
         f'output: "{plot_name}"',
-        'formats: ["pdf"]',
+        'formats: ["png", "pdf"]',
     ]
     return "\n".join(lines) + "\n"
 

@@ -5,12 +5,11 @@ Edit a YAML config and run:
 """
 import argparse
 import datetime
-import yaml
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 
-from nmr_io import process_spectrum
+from nmr_io import process_spectrum, load_plot_config, resolve_config_path
 
 
 def format_nucleus(raw: str) -> str:
@@ -73,6 +72,7 @@ def write_log(output: str, cfg: dict, spectra_meta: list):
         lines += [
             f"     Line broadening : {spec_cfg.get('lb', 1.0)} Hz",
             f"     Zero-fill       : {spec_cfg.get('zf', 1)}×",
+            f"     Vertical scale  : {spec_cfg.get('scale', 1.0)}",
             f"     Vertical offset : {spec_cfg.get('offset', 0)}",
         ]
 
@@ -95,17 +95,11 @@ def write_log(output: str, cfg: dict, spectra_meta: list):
 
 def main():
     parser = argparse.ArgumentParser(description="NMR Simple Plotter")
-    parser.add_argument("-c", "--config", required=True)
+    parser.add_argument("-c", "--config", default=None,
+                        help="plot.yaml to render (defaults to ./plot.yaml)")
     args = parser.parse_args()
 
-    with open(args.config) as f:
-        cfg = yaml.safe_load(f)
-
-    cfg_dir = Path(args.config).resolve().parent
-    cfg["_config_path"] = str(Path(args.config).resolve())
-    for spec in cfg["spectra"]:
-        spec["path"] = str((cfg_dir / spec["path"]).resolve())
-    cfg["output"] = str(cfg_dir / cfg.get("output", "spectrum"))
+    cfg = load_plot_config(resolve_config_path(args.config))
 
     fig_cfg  = cfg.get("figure", {})
     figsize  = fig_cfg.get("size", [4.5, 6.0])
@@ -127,8 +121,9 @@ def main():
         )
         spectra_meta.append((spec, acqu, proc))
         offset = spec.get("offset", 0.0)
+        scale  = spec.get("scale", 1.0)
         x_data = hz if x_unit == "hz" else ppm
-        ax.plot(x_data, intensity + offset,
+        ax.plot(x_data, intensity * scale + offset,
                 label     = spec.get("label", ""),
                 color     = spec.get("color"),
                 linewidth = spec.get("linewidth", 1.0),

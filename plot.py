@@ -1,71 +1,16 @@
 #!/usr/bin/env python
-"""Simple NMR plotter. Edit a YAML config and run:
+"""Simple NMR plotter for Spinsolve (Magritek) and TopSpin (Bruker) data.
+Edit a YAML config and run:
     python plot.py -c examples/config_spinsolve.yaml
 """
 import argparse
 import datetime
 import yaml
-import numpy as np
-import nmrglue as ng
-import matplotlib.pyplot as plt
 from pathlib import Path
 
+import matplotlib.pyplot as plt
 
-def _load_saved_phases(path: str) -> tuple[float, float]:
-    """Read phases.txt from the experiment directory. Falls back to (0, 0) with a warning."""
-    phase_file = Path(path) / "phases.txt"
-    if not phase_file.exists():
-        print(f"Warning: no phases.txt found in {path}, using p0=0 p1=0")
-        return 0.0, 0.0
-    p0, p1 = 0.0, 0.0
-    for line in phase_file.read_text().splitlines():
-        if "=" in line:
-            key, _, val = line.partition("=")
-            key, val = key.strip(), val.strip()
-            if key == "p0":
-                p0 = float(val)
-            elif key == "p1":
-                p1 = float(val)
-    return p0, p1
-
-
-def process_spinsolve(path, lb=1.0, zf=1, phase="proc", p0=0.0, p1=0.0):
-    """Load and process a Spinsolve FID. Returns (ppm, hz, real_spectrum, acqu, proc)."""
-    dic, data = ng.spinsolve.read(path)
-    acqu = dic["acqu"]
-    proc = dic["proc"]
-
-    obs        = float(acqu["b1Freq"])            # MHz
-    sw_hz      = float(acqu["bandwidth"]) * 1e3   # kHz → Hz
-    ppm_offset = float(proc.get("ppmOffset", 0))
-    p0_proc    = float(proc.get("p0Phase", 0))
-    p1_proc    = float(proc.get("p1Phase", 0))
-
-    if lb > 0:
-        data = ng.proc_base.em(data, lb=lb / sw_hz)
-
-    if zf > 1:
-        data = ng.proc_base.zf_size(data, len(data) * zf)
-
-    data = ng.proc_base.fft(data)
-
-    if phase == "auto":
-        data = ng.proc_autophase.autops(data, "acme")
-    elif phase == "manual":
-        data = ng.proc_base.ps(data, p0=p0, p1=p1)
-    elif phase == "saved":
-        p0, p1 = _load_saved_phases(path)
-        data = ng.proc_base.ps(data, p0=p0, p1=p1)
-    else:  # "proc"
-        data = ng.proc_base.ps(data, p0=p0_proc, p1=p1_proc)
-
-    npts   = len(data)
-    sw_ppm = sw_hz / obs
-    ppm = np.linspace(ppm_offset + sw_ppm / 2,
-                      ppm_offset - sw_ppm / 2, npts)
-    hz  = ppm * obs
-
-    return ppm, hz, data.real, acqu, proc
+from nmr_io import process_spectrum
 
 
 def format_nucleus(raw: str) -> str:
@@ -75,6 +20,11 @@ def format_nucleus(raw: str) -> str:
     if m:
         return f"$^{{{m.group(1)}}}${m.group(2)}"
     return raw
+
+
+def _fmt_num(value) -> str:
+    """Round floats to 3 decimals for display; pass through non-numeric values as-is."""
+    return f"{value:.3f}" if isinstance(value, float) else str(value)
 
 
 def write_log(output: str, cfg: dict, spectra_meta: list):
@@ -88,6 +38,8 @@ def write_log(output: str, cfg: dict, spectra_meta: list):
     ]
 
     for i, (spec_cfg, acqu, proc) in enumerate(spectra_meta):
+        nucleus = acqu.get("nucleus", "")
+        pulse_length = acqu.get(f"pulseLength{nucleus}", acqu.get("pulseLength", "N/A"))
         lines += [
             "",
             f"── Spectrum {i + 1}: {spec_cfg.get('label', spec_cfg['path'])}",
@@ -97,13 +49,13 @@ def write_log(output: str, cfg: dict, spectra_meta: list):
             f"     Experiment      : {acqu.get('experiment', 'N/A')}",
             f"     Nucleus         : {acqu.get('nucleus', 'N/A')}",
             f"     Frequency       : {float(acqu.get('b1Freq', 0)):.6f} MHz",
-            f"     Bandwidth       : {acqu.get('bandwidth', 'N/A')} kHz",
-            f"     Acq. time       : {acqu.get('acqTime', 'N/A')} ms",
-            f"     Dwell time      : {acqu.get('dwellTime', 'N/A')} µs",
+            f"     Bandwidth       : {_fmt_num(acqu.get('bandwidth', 'N/A'))} kHz",
+            f"     Acq. time       : {_fmt_num(acqu.get('acqTime', 'N/A'))} ms",
+            f"     Dwell time      : {_fmt_num(acqu.get('dwellTime', 'N/A'))} µs",
             f"     Nr. points      : {acqu.get('nrPnts', 'N/A')}",
             f"     Nr. scans       : {acqu.get('nrScans', 'N/A')}",
-            f"     Rep. time       : {acqu.get('repTime', 'N/A')} ms",
-            f"     Pulse length    : {acqu.get('pulseLength19F', acqu.get('pulseLength1H', acqu.get('pulseLength', 'N/A')))} µs",
+            f"     Rep. time       : {_fmt_num(acqu.get('repTime', 'N/A'))} ms",
+            f"     Pulse length    : {pulse_length} µs",
             f"     RX gain         : {acqu.get('rxGain', 'N/A')}",
             f"     Software        : {acqu.get('softwareVersion', 'N/A')}",
             "",
@@ -115,8 +67,9 @@ def write_log(output: str, cfg: dict, spectra_meta: list):
             lines.append(f"     p0              : {spec_cfg.get('p0', 0.0):.2f}°")
             lines.append(f"     p1              : {spec_cfg.get('p1', 0.0):.2f}°")
         else:
-            lines.append(f"     p0 (proc.par)   : {float(proc.get('p0Phase', 0)):.3f}°")
-            lines.append(f"     p1 (proc.par)   : {float(proc.get('p1Phase', 0)):.3f}°")
+            src = {"proc": "instrument-processed", "saved": "saved"}.get(phase_mode, phase_mode)
+            lines.append(f"     p0 ({src})".ljust(20) + f": {float(proc.get('p0Phase', 0)):.3f}°")
+            lines.append(f"     p1 ({src})".ljust(20) + f": {float(proc.get('p1Phase', 0)):.3f}°")
         lines += [
             f"     Line broadening : {spec_cfg.get('lb', 1.0)} Hz",
             f"     Zero-fill       : {spec_cfg.get('zf', 1)}×",
@@ -164,7 +117,7 @@ def main():
 
     spectra_meta = []
     for spec in cfg["spectra"]:
-        ppm, hz, intensity, acqu, proc = process_spinsolve(
+        ppm, hz, intensity, acqu, proc = process_spectrum(
             path  = spec["path"],
             lb    = spec.get("lb", 1.0),
             zf    = spec.get("zf", 1),

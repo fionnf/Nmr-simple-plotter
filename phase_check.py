@@ -1,8 +1,9 @@
 #!/usr/bin/env python
-"""Interactive phase correction tool.
+"""Interactive phase correction tool for Spinsolve and TopSpin data.
 
 Usage:
     python phase_check.py -p "examples/spinsolve_example/260714-160018 Fluorine1D (FF048_013)"
+    python phase_check.py -p "examples/topspin/9"
     python phase_check.py -p "..." --xlim -60 -220
 
 Controls:
@@ -15,35 +16,14 @@ Controls:
     Print values       — print p0/p1 to terminal for copying into your YAML
 """
 import argparse
+from pathlib import Path
+
 import numpy as np
 from scipy.optimize import minimize
-import nmrglue as ng
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider, Button
 
-
-def load_fid(path, lb=5.0, zf=8):
-    dic, data = ng.spinsolve.read(path)
-    acqu = dic["acqu"]
-    proc = dic["proc"]
-
-    obs        = float(acqu["b1Freq"])
-    sw_hz      = float(acqu["bandwidth"]) * 1e3
-    ppm_offset = float(proc.get("ppmOffset", 0))
-    p0_proc    = float(proc.get("p0Phase", 0))
-    p1_proc    = float(proc.get("p1Phase", 0))
-
-    if lb > 0:
-        data = ng.proc_base.em(data, lb=lb / sw_hz)
-    if zf > 1:
-        data = ng.proc_base.zf_size(data, len(data) * zf)
-    data = ng.proc_base.fft(data)
-
-    npts   = len(data)
-    sw_ppm = sw_hz / obs
-    ppm    = np.linspace(ppm_offset + sw_ppm / 2,
-                         ppm_offset - sw_ppm / 2, npts)
-    return ppm, data, p0_proc, p1_proc
+from nmr_io import load_fid_for_phasing as load_fid
 
 
 def apply_phase(fft_data, p0, p1, pivot_idx):
@@ -78,7 +58,7 @@ def _autophase(fft_data, peak_idx=None):
 
 def main():
     parser = argparse.ArgumentParser(description="Interactive NMR phase correction")
-    parser.add_argument("-p", "--path", required=True, help="Spinsolve experiment directory")
+    parser.add_argument("-p", "--path", required=True, help="Spinsolve or TopSpin experiment directory")
     parser.add_argument("--lb",   type=float, default=5.0, help="Line broadening in Hz")
     parser.add_argument("--zf",   type=int,   default=8,   help="Zero-fill factor")
     parser.add_argument("--xlim", nargs=2, type=float, default=None,

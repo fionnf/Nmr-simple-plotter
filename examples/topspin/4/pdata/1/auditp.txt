@@ -1,0 +1,23 @@
+##TITLE= Audit trail, TopSpin 3.5 pl 5
+##JCAMPDX= 5.01
+##ORIGIN= Bruker BioSpin GmbH
+##OWNER= fife
+$$ /opt/topspin/data/fife/nmr/230726_FF054/4/pdata/1/auditp.txt
+##AUDIT TRAIL=  $$ (NUMBER, WHEN, WHO, WHERE, PROCESS, VERSION, WHAT)
+(   1,<2026-07-23 14:08:05.236 +0200>,<fife>,<hahn>,<go4>,<TopSpin 3.5.5>,
+      <created by zg
+	started at 2026-07-23 14:05:47.179 +0200,
+	POWCHK disabled, PULCHK disabled,
+       configuration hash MD5:
+       AF 72 66 4C D8 7B 8E 54 E4 C1 0B 53 24 B0 77 AB
+       data hash MD5: 4858
+       A6 57 52 FD A7 A7 0A 1F 4F A3 B5 C3 AA 41 3C 12>)
+(   2,<2026-07-23 14:08:14.578 +0200>,<fife>,<hahn>,<proc1d>,<TopSpin 3.5.5>,
+      <Start of raw data processing
+       efp BC_mod = 2 LB = 0 FT_mod = 6 PKNL = 1 PHC0 = -262.2807 PHC1 = 165.1331 SI = 16880 
+       data hash MD5: 16880
+       4E 23 3A 51 11 D7 27 BF EB 41 AB BC 7A 6B 46 8F>)
+##END=
+
+$$ hash MD5
+$$ B2 82 A9 4B 0E 17 94 FF A5 57 61 D0 AE 96 4A BE

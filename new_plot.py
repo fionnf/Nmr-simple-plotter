@@ -5,19 +5,24 @@
 
 It will:
   1. Ask for a description (required — goes as a comment at the top of the yaml)
-  2. List the Spinsolve experiment subfolders it finds
+  2. List the Spinsolve/TopSpin experiment subfolders it finds
   3. Let you choose which ones to include
   4. Write a ready-to-edit plot.yaml in the current folder
 """
 import sys
 from pathlib import Path
 
+from nmr_io import is_experiment_dir
+
 COLORS = ["tab:blue", "tab:orange", "tab:green", "tab:red",
           "tab:purple", "tab:brown", "tab:pink", "tab:gray"]
 
 
-def is_spinsolve_dir(path: Path) -> bool:
-    return (path / "acqu.par").exists() and (path / "data.1d").exists()
+def _natural_sort_key(folder: Path):
+    """Sort bare-integer names (TopSpin expnos: 1, 2, ..., 10, 11) numerically;
+    fall back to alphabetical for named folders (Spinsolve sessions)."""
+    name = folder.name
+    return (0, int(name)) if name.isdigit() else (1, name)
 
 
 def parse_selection(text: str, n: int) -> list[int]:
@@ -92,11 +97,12 @@ def main():
     cwd = Path.cwd()
 
     subfolders = sorted([d for d in cwd.iterdir()
-                         if d.is_dir() and is_spinsolve_dir(d)])
+                         if d.is_dir() and is_experiment_dir(d)],
+                        key=_natural_sort_key)
 
     if not subfolders:
-        print("No Spinsolve experiment folders found in the current directory.")
-        print("(Looking for folders containing acqu.par and data.1d)")
+        print("No Spinsolve or TopSpin experiment folders found in the current directory.")
+        print("(Looking for folders containing acqu.par + data.1d, or acqus + fid)")
         sys.exit(1)
 
     # ── Description (required) ────────────────────────────────────────────

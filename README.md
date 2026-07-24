@@ -1,6 +1,6 @@
 # NMR Simple Plotter
 
-Config-driven NMR plotting tool for Spinsolve (Magritek) benchtop NMR data. Edit a YAML file, run one command, get a publication-ready figure.
+Config-driven NMR plotting tool for Spinsolve (Magritek) benchtop NMR data and TopSpin (Bruker) data. Edit a YAML file, run one command, get a publication-ready figure. The format (Spinsolve vs TopSpin) is auto-detected from each experiment folder's contents — nothing to configure.
 
 ## Setup
 
@@ -203,7 +203,9 @@ formats: ["pdf"]              # "png", "pdf", "svg"
 
 ## Data Format
 
-Point `path` at the Spinsolve experiment directory (the folder containing `acqu.par` and `data.1d`). Paths are always resolved relative to the yaml file's location, so `../subfolder` points one level up into the session folder.
+Point `path` at the experiment directory. Format is auto-detected from its contents — no config needed. Paths are always resolved relative to the yaml file's location, so `../subfolder` points one level up into the session folder.
+
+**Spinsolve** — the folder containing `acqu.par` and `data.1d`:
 
 ```
 260715-161733 TRIPF (FF049_008)/
@@ -212,6 +214,20 @@ Point `path` at the Spinsolve experiment directory (the folder containing `acqu.
 ├── proc.par
 └── ...
 ```
+
+**TopSpin** — the expno folder containing `acqus` and `fid` (e.g. `myrun/9`, not the dataset root `myrun/`):
+
+```
+myrun/9/
+├── acqus
+├── fid
+├── pdata/1/
+│   ├── procs
+│   └── 1r
+└── ...
+```
+
+For TopSpin, `phase: "proc"` reads the spectrum TopSpin itself already processed and phased (`pdata/1/1r`) rather than re-deriving phase values — TopSpin's stored phase convention doesn't map onto nmrglue's, so this is the reliable path. `"auto"`, `"manual"`, and `"saved"` reprocess the raw `fid` the same way as Spinsolve.
 
 ---
 

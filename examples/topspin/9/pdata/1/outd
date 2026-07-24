@@ -1,0 +1,16 @@
+##TITLE= Parameter file, TopSpin 3.5 pl 5
+##JCAMPDX= 5.0
+##DATATYPE= Parameter Values
+##NPOINTS= 1	$$ modification sequence number
+##ORIGIN= Bruker BioSpin GmbH
+##OWNER= fife
+$$ 2026-07-23 14:24:02.972 +0200  fife@hahn
+$$ /opt/topspin/data/fife/nmr/230726_FF054/9/pdata/1/outd
+$$ process /opt/topspin3.5pl5/prog/mod/edparproc
+##$CURPLOT= <hplj4l>
+##$CURPRIN= <$hplj6l>
+##$DFORMAT= <normdp>
+##$LAYOUT= <~/buildup.xwp>
+##$LFORMAT= <normlp>
+##$PFORMAT= <normpl>
+##END=
